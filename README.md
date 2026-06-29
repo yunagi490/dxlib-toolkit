@@ -3,16 +3,16 @@
 [DxLib](https://dxlib.xsrv.jp/)(gcc/MinGW版)を使ったゲーム開発を効率化するツール集です。
 2つの独立したツールを同じリポジトリにまとめています。
 
-| ツール | 対象 | できること |
-|---|---|---|
-| [`dx-cli`](./dx-cli) | Windows / Mac / Linux (Node.js必須) | `dx create`/`dev`/`build`/`run`/`test`/`add`/`doctor` 等、Vite/Nuxtライクな開発体験一式 |
-| [`dxlib-setup-kit`](./dxlib-setup-kit) | Windows(vbs) / Mac・Linux(sh) | Node.js不要。ワンショットで環境構築だけ行う軽量スクリプト |
+| ツール                                 | 対象                                | できること                                                                              |
+| -------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------- |
+| [`dx-cli`](./dx-cli)                   | Windows / Mac / Linux (Node.js必須) | `dx create`/`dev`/`build`/`run`/`test`/`add`/`doctor` 等、Vite/Nuxtライクな開発体験一式 |
+| [`dxlib-setup-kit`](./dxlib-setup-kit) | Windows(vbs) / Mac・Linux(sh)       | Node.js不要。ワンショットで環境構築だけ行う軽量スクリプト                               |
 
 どちらも DxLib本体・[dxlib-for-linux](https://github.com/dragoon2014/dxlib-for-linux)のダウンロード/clone先キャッシュ
 (`~/.dxlib-setup/cache`、Windowsは`%USERPROFILE%\.dxlib-setup\cache`)を共有するため、
 片方で取得済みのファイルはもう片方でも再利用されます。
 
-## どちらを使えばいい？
+## どっちを使えばいい？
 
 - **Node.jsが使える/使ってもいい環境** → `dx-cli` を推奨。`dx dev`での自動ビルド&再起動、`dx add scene`での雛形生成、
   `dx test`でのテスト実行など、継続的な開発に向いた機能が揃っています。
@@ -23,7 +23,7 @@
 ### dx-cli (Mac/Linux, Homebrew)
 
 ```bash
-brew tap YOUR_GITHUB_USERNAME/dxlib-toolkit
+brew tap [YOUR_GITHUB_USERNAME]/dxlib-toolkit
 brew install dx-cli
 dx help
 ```
