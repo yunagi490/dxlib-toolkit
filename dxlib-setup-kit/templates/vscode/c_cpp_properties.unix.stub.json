@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "DxLib-stub-syntax-only",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "__DXLIB_DIR__"
+            ],
+            "defines": [
+                "DX_GCC_COMPILE",
+                "DX_NON_INLINE_ASM",
+                "__DXLIB_STUB_MODE__"
+            ],
+            "compilerPath": "__GPP_PATH__",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "__INTELLISENSE_MODE__"
+        }
+    ],
+    "version": 4
+}

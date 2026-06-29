@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DxLib: 実行 (native/__DEBUGGER_LABEL__)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/${workspaceFolderBasename}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "__MI_MODE__",
+            "miDebuggerPath": "__DEBUGGER_PATH__",
+            "preLaunchTask": "DxLib: ビルド(フォルダ作成込み)"
+        }
+    ]
+}

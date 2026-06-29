@@ -1,0 +1,12 @@
+# dx-cli/dist/ は意図的にコミットします(外部npm依存ゼロ・ビルド済み配布物として扱うため)。
+# Homebrew formulaやyarn global addはdist/が同梱されていることを前提にしています。
+# src/編集後は `cd dx-cli && yarn build` を実行し、dist/の差分も含めてコミットしてください。
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# 開発で作られた一時的なテストプロジェクト等(dx createの出力例など)を誤ってコミットしないため
+/sandbox/
+/tmp-*/

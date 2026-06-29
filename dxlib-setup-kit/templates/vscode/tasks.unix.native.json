@@ -1,0 +1,70 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cppbuild",
+            "label": "DxLib: ビルド (native/実機)",
+            "command": "__GPP_PATH__",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "-std=c++17",
+                "${workspaceFolder}/src/*.cpp",
+                "-I__DXLIB_DIR__/include",
+                "-DDX_GCC_COMPILE",
+                "-DDX_NON_INLINE_ASM",
+                "-o",
+                "${workspaceFolder}/build/${workspaceFolderBasename}",
+                "-L__DXLIB_DIR__/lib",
+                "-lDxLib",
+                "-lEGL",
+                "-lGLESv2",
+                "-lX11",
+                "-lpthread",
+                "-lpng",
+                "-ljpeg",
+                "-lz",
+                "-ltiff",
+                "-lopenal",
+                "-lvorbisfile",
+                "-lvorbis",
+                "-logg",
+                "-lopusfile",
+                "-lopus",
+                "-ltheoradec"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "dxlib-for-linux(dra版)を使った実機ビルド。Linux/X11環境専用。事前にbuild/フォルダが必要です。"
+        },
+        {
+            "type": "shell",
+            "label": "DxLib: buildフォルダ作成",
+            "command": "mkdir -p \"${workspaceFolder}/build\"",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "DxLib: ビルド(フォルダ作成込み)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "DxLib: buildフォルダ作成",
+                "DxLib: ビルド (native/実機)"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
+}

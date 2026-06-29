@@ -1,0 +1,32 @@
+{
+  "name": "dx-cli",
+  "version": "0.1.0",
+  "description": "DxLib(gcc/MinGW版)プロジェクト用の開発CLI (Vite/Nuxtライクな dx create/dev/build/run/test/add/doctor)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit.git",
+    "directory": "dx-cli"
+  },
+  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/tree/main/dx-cli#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/issues"
+  },
+  "bin": {
+    "dx": "dist/bin/dx.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev:self": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

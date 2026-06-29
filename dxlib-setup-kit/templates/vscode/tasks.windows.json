@@ -1,0 +1,86 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cppbuild",
+            "label": "DxLib: ビルド (デバッグ)",
+            "command": "__GPP_PATH__",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "-std=c++17",
+                "-finput-charset=UTF-8",
+                "-fexec-charset=UTF-8",
+                "${workspaceFolder}/src/*.cpp",
+                "-I__DXLIB_DIR__",
+                "-DDX_GCC_COMPILE",
+                "-DDX_NON_INLINE_ASM",
+                "-mwindows",
+                "-static-libgcc",
+                "-static-libstdc++",
+                "-o",
+                "${workspaceFolder}/build/${workspaceFolderBasename}.exe",
+                "-L__DXLIB_DIR__",
+                "-lDxLib",
+                "-lDxUseCLib",
+                "-lDxDrawFunc",
+                "-ljpeg",
+                "-lpng",
+                "-lzlib",
+                "-ltiff",
+                "-ltheora_static",
+                "-lvorbis_static",
+                "-lvorbisfile_static",
+                "-logg_static",
+                "-lbulletdynamics",
+                "-lbulletcollision",
+                "-lbulletmath",
+                "-lopusfile",
+                "-lopus",
+                "-lsilk_common",
+                "-lcelt",
+                "-ldinput8",
+                "-ldxguid",
+                "-ldsound",
+                "-lwinmm",
+                "-limm32",
+                "-lole32",
+                "-loleaut32",
+                "-lcomdlg32",
+                "-lwininet"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "DxLib(MinGW gcc版)を使ったプロジェクトのビルドタスク。build/フォルダ未作成時は事前に作成してください。"
+        },
+        {
+            "type": "shell",
+            "label": "DxLib: buildフォルダ作成",
+            "command": "if not exist \"${workspaceFolder}\\build\" mkdir \"${workspaceFolder}\\build\"",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "DxLib: ビルド(フォルダ作成込み)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "DxLib: buildフォルダ作成",
+                "DxLib: ビルド (デバッグ)"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
+}

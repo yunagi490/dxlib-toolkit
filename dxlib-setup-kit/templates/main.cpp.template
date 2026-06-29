@@ -1,0 +1,48 @@
+// DxLib サンプルプログラム
+// このファイルは dxlib-setup によって自動生成されました。
+//
+// - Windows / native(Linux実機)モードの場合: そのままビルド・実行すると白い四角が描かれます。
+// - Mac/Linux stubモードの場合: 構文チェックのみ可能です（実行ファイルは作られません）。
+//   実際に動かしたい場合は Windows 環境、または --mode=native での再セットアップを検討してください。
+
+#include "DxLib.h"
+
+#ifdef __DXLIB_STUB_MODE__
+// stubモードでは DxLib_Init 等の実体（lib側）が無いため、
+// IntelliSense / 構文チェックのみを目的としています。
+#endif
+
+#if defined(_WIN32) || !defined(__DXLIB_STUB_MODE__)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+#else
+int main()
+#endif
+{
+    ChangeWindowMode(TRUE); // ウィンドウモードで起動
+    SetGraphMode(640, 480, 32);
+
+    if (DxLib_Init() == -1) // DxLib初期化
+    {
+        return -1;
+    }
+
+    SetDrawScreen(DX_SCREEN_BACK);
+
+    while (ProcessMessage() == 0)
+    {
+        ClearDrawScreen();
+
+        DrawBox(270, 190, 370, 290, GetColor(255, 255, 255), TRUE);
+
+        ScreenFlip();
+
+        if (CheckHitKey(KEY_INPUT_ESCAPE) == 1)
+        {
+            break;
+        }
+    }
+
+    DxLib_End(); // DxLib終了処理
+
+    return 0;
+}

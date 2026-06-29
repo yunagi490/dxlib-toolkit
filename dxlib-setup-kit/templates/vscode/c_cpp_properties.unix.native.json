@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "DxLib-native-linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "__DXLIB_DIR__/include"
+            ],
+            "defines": [
+                "DX_GCC_COMPILE",
+                "DX_NON_INLINE_ASM"
+            ],
+            "compilerPath": "__GPP_PATH__",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

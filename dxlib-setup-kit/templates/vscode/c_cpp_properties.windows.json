@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "Win32-DxLib",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "__DXLIB_DIR__"
+            ],
+            "defines": [
+                "DX_GCC_COMPILE",
+                "DX_NON_INLINE_ASM",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "__GPP_PATH__",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}

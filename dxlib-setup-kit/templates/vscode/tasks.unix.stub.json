@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cppbuild",
+            "label": "DxLib: 構文チェックのみ (stubモード/実行不可)",
+            "command": "__GPP_PATH__",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-fsyntax-only",
+                "-std=c++17",
+                "${file}",
+                "-I__DXLIB_DIR__",
+                "-DDX_GCC_COMPILE",
+                "-DDX_NON_INLINE_ASM",
+                "-D__DXLIB_STUB_MODE__"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Windows版DxLibヘッダを使った構文チェック専用タスク。実行ファイルは生成されません。実機実行にはWindows環境かnativeモード(dxlib-for-linux)が必要です。"
+        }
+    ]
+}
