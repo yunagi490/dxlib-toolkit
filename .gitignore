@@ -10,3 +10,4 @@ Thumbs.db
 # 開発で作られた一時的なテストプロジェクト等(dx createの出力例など)を誤ってコミットしないため
 /sandbox/
 /tmp-*/
+dx-cli/DxTest*/
