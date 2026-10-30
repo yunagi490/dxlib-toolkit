@@ -1,0 +1,4 @@
+build/
+lib/DxLib/
+node_modules/
+Log.txt

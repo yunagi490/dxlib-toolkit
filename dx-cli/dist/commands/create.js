@@ -85,7 +85,7 @@ async function createCommand(rawName, args) {
     };
     (0, config_1.writeConfig)(projectDir, config);
     // .gitignore
-    fs.writeFileSync(path.join(projectDir, ".gitignore"), ["build/", "lib/DxLib/", "node_modules/", ""].join("\n"));
+    fs.writeFileSync(path.join(projectDir, ".gitignore"), ["build/", "lib/DxLib/", "node_modules/", "Log.txt", ""].join("\n"));
     logger_1.logger.success("プロジェクトの足場を生成しました。");
     // DxLib本体の取得
     await setupDxLib(projectDir, mode);
