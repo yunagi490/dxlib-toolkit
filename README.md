@@ -23,7 +23,7 @@
 ### dx-cli (Mac/Linux, Homebrew)
 
 ```bash
-brew tap [YOUR_GITHUB_USERNAME]/dxlib-toolkit
+brew tap yunagi490/dxlib-toolkit
 brew install dx-cli
 dx help
 ```

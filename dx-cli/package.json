@@ -5,12 +5,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit.git",
+    "url": "https://github.com/yunagi490/dxlib-toolkit.git",
     "directory": "dx-cli"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/tree/main/dx-cli#readme",
+  "homepage": "https://github.com/yunagi490/dxlib-toolkit/tree/main/dx-cli#readme",
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/issues"
+    "url": "https://github.com/yunagi490/dxlib-toolkit/issues"
   },
   "bin": {
     "dx": "dist/bin/dx.js"

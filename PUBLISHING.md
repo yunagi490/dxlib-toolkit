@@ -8,7 +8,7 @@ GitHubに公開し、`brew install dx-cli` で誰でも(自分でも)インス�
 最終的な`brew install`での動作確認はMac/Linux環境(別マシン、VM、WSL等)で行ってください。
 手順5・6はMac/Linux側での作業です。
 
-以下、`YOUR_GITHUB_USERNAME` は実際のGitHubユーザー名に読み替えてください。
+以下、`yunagi490` は実際のGitHubユーザー名に読み替えてください。
 このプレースホルダーは以下のファイルに登場するので、置き換えが必要です:
 
 - `dxlib-toolkit\README.md`
@@ -31,19 +31,19 @@ $username = "実際のGitHubユーザー名"
 # dxlib-toolkit 側
 Get-ChildItem -Path .\dxlib-toolkit -Recurse -File |
     Where-Object { $_.FullName -notmatch '\\dist\\|\\node_modules\\' } |
-    Select-String -Pattern "YOUR_GITHUB_USERNAME" -List |
+    Select-String -Pattern "yunagi490" -List |
     Select-Object -ExpandProperty Path |
     ForEach-Object {
-        (Get-Content -Raw -LiteralPath $_) -replace "YOUR_GITHUB_USERNAME", $username |
+        (Get-Content -Raw -LiteralPath $_) -replace "Yyunagi490", $username |
             Set-Content -NoNewline -LiteralPath $_
     }
 
 # homebrew-dxlib-toolkit 側
 Get-ChildItem -Path .\homebrew-dxlib-toolkit -Recurse -File |
-    Select-String -Pattern "YOUR_GITHUB_USERNAME" -List |
+    Select-String -Pattern "yunagi490" -List |
     Select-Object -ExpandProperty Path |
     ForEach-Object {
-        (Get-Content -Raw -LiteralPath $_) -replace "YOUR_GITHUB_USERNAME", $username |
+        (Get-Content -Raw -LiteralPath $_) -replace "yunagi490", $username |
             Set-Content -NoNewline -LiteralPath $_
     }
 ```
@@ -52,7 +52,7 @@ Get-ChildItem -Path .\homebrew-dxlib-toolkit -Recurse -File |
 
 ```powershell
 Get-ChildItem -Path .\dxlib-toolkit,.\homebrew-dxlib-toolkit -Recurse -File |
-    Select-String -Pattern "YOUR_GITHUB_USERNAME"
+    Select-String -Pattern "yunagi490"
 # 何も出力されなければ置換完了
 ```
 
@@ -60,7 +60,7 @@ Get-ChildItem -Path .\dxlib-toolkit,.\homebrew-dxlib-toolkit -Recurse -File |
 `Set-Content -NoNewline`は、置換時に余分な改行が末尾に追加されるのを防ぐためのものです
 (念のため、置換後に`git diff`で意図しない改行コード変化(CRLF/LF)が起きていないか確認してください)。
 
-> **注意**: この`PUBLISHING.md`自体にも説明用に`YOUR_GITHUB_USERNAME`という文字列が
+> **注意**: この`PUBLISHING.md`自体にも説明用に`yunagi490`という文字列が
 > 複数回登場します。上記スクリプトをこのファイルにも適用すると、説明文中のプレースホルダーまで
 > 実際のユーザー名に書き換わってしまい、ドキュメントとして読みづらくなります(動作上の問題は
 > ありませんが、見た目が気になる場合は対象から`PUBLISHING.md`を除外してください)。
@@ -158,7 +158,7 @@ git push -u origin main
 ## 5. 動作確認 (Mac/Linux側での作業)
 
 ```bash
-brew tap YOUR_GITHUB_USERNAME/dxlib-toolkit
+brew tap yunagi490/dxlib-toolkit
 brew install dx-cli
 dx help
 ```
