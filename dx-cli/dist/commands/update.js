@@ -86,9 +86,9 @@ async function refreshDxLib(root, mode, force) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dxlib_extract_"));
     try {
         (0, env_1.extractZip)(zipPath, tmpDir);
-        const gccFolder = (0, env_1.findFolderRecursive)(tmpDir, "GCC") ?? (0, env_1.findFolderRecursive)(tmpDir, "MinGW");
+        const gccFolder = (0, env_1.findGccVersionRoot)(tmpDir);
         if (!gccFolder) {
-            logger_1.logger.warn("zip内にGCC(MinGW)用フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
+            logger_1.logger.warn("zip内にコンパイラバージョン別フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
             return;
         }
         const versionFolder = (0, env_1.pickBestVersionFolder)(gccFolder, (0, env_1.findGpp)());
@@ -96,6 +96,7 @@ async function refreshDxLib(root, mode, force) {
             logger_1.logger.warn("コンパイラバージョン別フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
             return;
         }
+        logger_1.logger.info(`使用するライブラリ: ${path.basename(versionFolder)}`);
         fs.rmSync(destDir, { recursive: true, force: true });
         (0, env_1.copyRecursive)(versionFolder, destDir);
         logger_1.logger.success(`DxLibを更新しました: ${destDir}`);

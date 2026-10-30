@@ -112,7 +112,7 @@ export function buildPlan(
       "-fexec-charset=UTF-8",
       `-I${dxlibDir}`,
       "-DDX_GCC_COMPILE",
-      "-DDX_NON_INLINE_ASM",
+      // DX_NON_INLINE_ASM は DxCompileConfig.h 側で定義されるため、ここでは渡さない(渡すと "redefined" 警告になる)
       "-mwindows",
       "-static-libgcc",
       "-static-libstdc++",

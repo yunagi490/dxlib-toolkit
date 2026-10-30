@@ -10,7 +10,7 @@ import {
   findDebugger,
   ensureDxLibWindowsZip,
   extractZip,
-  findFolderRecursive,
+  findGccVersionRoot,
   pickBestVersionFolder,
   copyRecursive,
   cloneOrUpdateDxLibForLinux,
@@ -147,11 +147,11 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dxlib_extract_"));
-  try {
+    try {
     extractZip(zipPath, tmpDir);
-    const gccFolder = findFolderRecursive(tmpDir, "GCC") ?? findFolderRecursive(tmpDir, "MinGW");
+    const gccFolder = findGccVersionRoot(tmpDir);
     if (!gccFolder) {
-      logger.warn(`zip内にGCC(MinGW)用フォルダが見つかりませんでした: ${tmpDir}`);
+      logger.warn(`zip内にコンパイラバージョン別フォルダが見つかりませんでした: ${tmpDir}`);
       return;
     }
     const versionFolder = pickBestVersionFolder(gccFolder, findGpp());
@@ -159,6 +159,7 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
       logger.warn(`コンパイラバージョン別フォルダが見つかりませんでした: ${gccFolder}`);
       return;
     }
+    logger.info(`使用するライブラリ: ${path.basename(versionFolder)}`);
     copyRecursive(versionFolder, destDir);
     logger.success(`DxLibを配置しました: ${destDir}`);
   } finally {
