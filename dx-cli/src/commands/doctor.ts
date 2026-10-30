@@ -140,7 +140,7 @@ export function doctorCommand(): void {
 
 function buildGppHint(): string {
   if (currentPlatform() === "windows") {
-    return "MinGWが見つかりません。`choco install mingw` または https://winlibs.com/ から導入してください。";
+    return "MinGWが見つかりません。`dx toolchain install` でDxLibと一致するMinGW-w64を取得できます(または自分で導入してPATHに通してください)。";
   }
   if (currentPlatform() === "macos") {
     return "g++が見つかりません。`brew install gcc` を試してください(あるいはXcode Command Line Tools)。";

@@ -1,11 +1,15 @@
 // 依存物(DxLib本体など)の取得元・バージョン・検証情報を1か所に集約するマニフェスト。
 // 「公式ページのHTMLからリンクを推測する」のではなく、バージョンを固定して取得する。
+/** ファイル形式。構造チェック(先頭シグネチャ等)の種類を決める。省略時は zip。 */
+export type ArtifactKind = "zip" | "7z" | "exe";
 
 export interface ManifestEntry {
   id: string;
   version: string;
   /** キャッシュ内での保存名(取得元のURL末尾と一致させる) */
   fileName: string;
+  /** ファイル形式。省略時は zip。 */
+  kind?: ArtifactKind;
   /** 取得元URL。先頭から順に試す(DX_MIRROR_URL が設定されていればそのミラーが最優先、resolveSources参照) */
   sources: string[];
   /**
@@ -25,6 +29,37 @@ export const DXLIB_WINDOWS_GCC: ManifestEntry = {
   sources: ["https://dxlib.xsrv.jp/DxLib/DxLib_GCC3_25a.zip"],
   sha256: "4656f11dc0cab3f23d0a7c44103c10d1b7132558964a32aab0dfb24c165660a7",
   minBytes: 1024 * 1024,
+};
+
+/**
+ * 7z形式を展開するための単体exe(7-Zip公式の 7zr.exe)。バージョン固定。
+ * Windows標準の tar.exe は 7z の LZMA を展開できないため、ツールチェーン展開にのみ使う。
+ */
+export const SEVENZR_WINDOWS: ManifestEntry = {
+  id: "7zr-windows",
+  version: "26.05",
+  kind: "exe",
+  fileName: "7zr.exe",
+  sources: ["https://github.com/ip7z/7zip/releases/download/26.05/7zr.exe"],
+  sha256: "9bf582b894dfa665f852d7e9112b02290a1c303c2d95a21fcdc41ffcb03143b7",
+  minBytes: 300 * 1024,
+};
+
+/**
+ * DxLib 3.25a のGCC版ライブラリ(12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2)と一致するMinGW-w64。
+ * niXman/mingw-builds の 12.2.0 rt_v10 rev2 (win32スレッド, SEH, UCRT)。
+ * 上流はチェックサムを公開していないため、ここのSHA-256はdx-cli側で実測して固定した値。
+ */
+export const MINGW_WINDOWS_X64: ManifestEntry = {
+  id: "mingw-w64-x86_64-12.2.0-win32-seh-ucrt-rev2",
+  version: "12.2.0",
+  kind: "7z",
+  fileName: "x86_64-12.2.0-release-win32-seh-ucrt-rt_v10-rev2.7z",
+  sources: [
+    "https://github.com/niXman/mingw-builds-binaries/releases/download/12.2.0-rt_v10-rev2/x86_64-12.2.0-release-win32-seh-ucrt-rt_v10-rev2.7z",
+  ],
+  sha256: "d2911a1b1a4947a592b3b82968847a0ad05c11d19a16c64b55bcc9ddd45618e7",
+  minBytes: 50 * 1024 * 1024,
 };
 
 /**

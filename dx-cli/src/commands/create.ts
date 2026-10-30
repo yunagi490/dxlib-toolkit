@@ -17,6 +17,7 @@ import {
   buildDxLibForLinux,
   nativeDxLibSourceDir,
 } from "../core/env";
+import { ensureManagedToolchain } from "../core/toolchain";
 import * as engineTpl from "../templates/engine";
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
@@ -42,6 +43,17 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.divider();
 
   const mode = await resolveDxLibMode(args);
+  if (mode === "windows" && process.platform === "win32" && !findGpp()) {
+    logger.warn("g++ (MinGW-w64) が見つかりません。");
+    logger.plain("  DxLib 3.25a のライブラリと一致するMinGW-w64 12.2.0 (約70MB) を、");
+    logger.plain("  dx-cli専用フォルダ(~/.dxlib-setup/toolchain)へ取得できます。システムの設定は変更しません。");
+    if (await confirm("取得しますか?", false)) {
+      const res = await ensureManagedToolchain();
+      if (!res.gppPath) logger.warn(`${res.reason ?? "取得できませんでした。"} 後で \`dx toolchain install\` で再試行できます。`);
+    } else {
+      logger.info("スキップしました。MinGW-w64を自分で導入するか、後で `dx toolchain install` を実行してください。");
+    }
+  }
 
   fs.mkdirSync(projectDir, { recursive: true });
   fs.mkdirSync(path.join(projectDir, "src", "engine"), { recursive: true });

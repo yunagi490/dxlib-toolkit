@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { logger } from "./logger";
 import { ManifestEntry, resolveSources } from "./manifest";
 
+const SIG_7Z = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c];
 const USER_AGENT = "Mozilla/5.0 (compatible; dx-cli-setup-script)";
 const TIMEOUT_MS = 120_000;
 
@@ -34,11 +35,47 @@ function zipStructureError(buf: Buffer, minBytes: number): string | null {
   return "zipの終端レコードがありません(ダウンロードが途中で切れた可能性があります)";
 }
 
-export function verifyZipFile(file: string, minBytes: number, expectedSha256?: string): Verification {
+function sevenZipStructureError(buf: Buffer, minBytes: number): string | null {
+  if (buf.length < minBytes) {
+    return `サイズが小さすぎます (${buf.length} bytes < ${minBytes} bytes)`;
+  }
+  if (!SIG_7Z.every((b, i) => buf[i] === b)) {
+    return "7zの先頭シグネチャがありません(HTMLのエラーページ等の可能性があります)";
+  }
+  return null;
+}
+
+function exeStructureError(buf: Buffer, minBytes: number): string | null {
+  if (buf.length < minBytes) {
+    return `サイズが小さすぎます (${buf.length} bytes < ${minBytes} bytes)`;
+  }
+  if (!(buf[0] === 0x4d && buf[1] === 0x5a)) {
+    return "exeの先頭シグネチャ(MZ)がありません(HTMLのエラーページ等の可能性があります)";
+  }
+  return null;
+}
+
+function structureError(kind: "zip" | "7z" | "exe", buf: Buffer, minBytes: number): string | null {
+  switch (kind) {
+    case "7z":
+      return sevenZipStructureError(buf, minBytes);
+    case "exe":
+      return exeStructureError(buf, minBytes);
+    default:
+      return zipStructureError(buf, minBytes);
+  }
+}
+
+export function verifyZipFile(
+  file: string,
+  minBytes: number,
+  expectedSha256?: string,
+  kind: "zip" | "7z" | "exe" = "zip"
+): Verification {
   const buf = fs.readFileSync(file);
   const sha256 = createHash("sha256").update(buf).digest("hex");
 
-  const structural = zipStructureError(buf, minBytes);
+  const structural = structureError(kind, buf, minBytes);
   if (structural) return { ok: false, reason: structural, sha256 };
 
   if (expectedSha256 && expectedSha256.toLowerCase() !== sha256) {
@@ -73,7 +110,7 @@ function discard(file: string): void {
 /** キャッシュ済みファイルの検証。マニフェストにハッシュがあればそれと、無ければ初回取得時の記録(sidecar)と照合する。 */
 export function verifyCachedEntry(file: string, entry: ManifestEntry): Verification {
   const expected = entry.sha256 ?? readSidecar(file);
-  return verifyZipFile(file, entry.minBytes, expected);
+  return verifyZipFile(file, entry.minBytes, expected, entry.kind ?? "zip");
 }
 
 /**
@@ -83,7 +120,7 @@ export function verifyCachedEntry(file: string, entry: ManifestEntry): Verificat
  * - 検証前のデータは `.part` に書き、通ったものだけを本来の名前にリネームする(壊れたファイルがキャッシュに残らない)
  * すべて失敗した場合はnullを返す。
  */
-export async function ensureVerifiedZip(
+export async function ensureVerifiedFile(
   entry: ManifestEntry,
   destDir: string,
   opts?: { force?: boolean }
@@ -115,7 +152,7 @@ export async function ensureVerifiedZip(
       }
       fs.writeFileSync(part, Buffer.from(await res.arrayBuffer()));
 
-      const v = verifyZipFile(part, entry.minBytes, entry.sha256);
+      const v = verifyZipFile(part, entry.minBytes, entry.sha256, entry.kind ?? "zip");
       if (!v.ok) {
         logger.warn(`ダウンロードしたファイルを破棄します: ${v.reason}`);
         fs.rmSync(part, { force: true });
@@ -138,3 +175,5 @@ export async function ensureVerifiedZip(
   }
   return null;
 }
+/** 旧名。zip以外(7z/exe)にも使えるようになったため ensureVerifiedFile に改名し、互換のため残している。 */
+export const ensureVerifiedZip = ensureVerifiedFile;

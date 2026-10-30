@@ -5,6 +5,7 @@ import { execSync, execFileSync, spawnSync } from "node:child_process";
 import { logger } from "./logger";
 import { DXLIB_WINDOWS_GCC } from "./manifest";
 import { ensureVerifiedZip, verifyCachedEntry, verifyZipFile } from "./download";
+import { managedGppIfPresent } from "./toolchain";
 
 export type Platform = "windows" | "macos" | "linux";
 
@@ -63,6 +64,8 @@ export function findGpp(): string | null {
     for (const candidate of WINDOWS_GPP_CANDIDATES) {
       if (fs.existsSync(candidate)) return candidate;
     }
+    // 上記で見つからない時だけ、dx-cliが取得した管理下ツールチェーンを使う(既存のMinGWを優先)
+    return managedGppIfPresent();
   }
   return null;
 }

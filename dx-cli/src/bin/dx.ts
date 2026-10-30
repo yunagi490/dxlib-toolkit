@@ -10,6 +10,7 @@ import { cleanCommand } from "../commands/clean";
 import { doctorCommand } from "../commands/doctor";
 import { updateCommand } from "../commands/update";
 import { addCommand } from "../commands/add";
+import { toolchainCommand } from "../core/toolchain";
 
 const HELP_TEXT = `
 dx - DxLib プロジェクト用開発CLI
@@ -22,7 +23,8 @@ dx - DxLib プロジェクト用開発CLI
   dx test                                         tests/ 配下のテストを実行
   dx clean                                        build/ を削除
   dx update [--vscode-only] [--force]             DxLib本体と.vscode設定を最新化(srcは触りません)
-  dx doctor                                       環境診断
+  dx doctor                                       環境診断   
+  dx toolchain [status|install [--force]|remove] 管理下MinGWの状態確認/取得/削除(Windows)                                  環境診断
   dx add scene <Name>                             シーンを追加 (IScene派生 + .h/.cpp)
   dx add class <Name>                             クラスを追加 (.h/.cpp)
   dx help                                         このヘルプを表示
@@ -59,6 +61,9 @@ async function main(): Promise<void> {
         break;
       case "add":
         addCommand(rest[0], rest[1]);
+        break;
+      case "toolchain":
+        toolchainCommand(rest);
         break;
       case "help":
       case "--help":
