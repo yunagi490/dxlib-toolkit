@@ -148,7 +148,7 @@ function doctorCommand() {
 }
 function buildGppHint() {
     if ((0, env_1.currentPlatform)() === "windows") {
-        return "MinGWが見つかりません。`choco install mingw` または https://winlibs.com/ から導入してください。";
+        return "MinGWが見つかりません。`dx toolchain install` でDxLibと一致するMinGW-w64を取得できます(または自分で導入してPATHに通してください)。";
     }
     if ((0, env_1.currentPlatform)() === "macos") {
         return "g++が見つかりません。`brew install gcc` を試してください(あるいはXcode Command Line Tools)。";

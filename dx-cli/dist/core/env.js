@@ -59,6 +59,7 @@ const node_child_process_1 = require("node:child_process");
 const logger_1 = require("./logger");
 const manifest_1 = require("./manifest");
 const download_1 = require("./download");
+const toolchain_1 = require("./toolchain");
 function currentPlatform() {
     switch (process.platform) {
         case "win32":
@@ -110,6 +111,8 @@ function findGpp() {
             if (fs.existsSync(candidate))
                 return candidate;
         }
+        // 上記で見つからない時だけ、dx-cliが取得した管理下ツールチェーンを使う(既存のMinGWを優先)
+        return (0, toolchain_1.managedGppIfPresent)();
     }
     return null;
 }

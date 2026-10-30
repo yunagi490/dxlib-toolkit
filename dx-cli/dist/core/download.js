@@ -33,14 +33,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ensureVerifiedZip = void 0;
 exports.verifyZipFile = verifyZipFile;
 exports.verifyCachedEntry = verifyCachedEntry;
-exports.ensureVerifiedZip = ensureVerifiedZip;
+exports.ensureVerifiedFile = ensureVerifiedFile;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const node_crypto_1 = require("node:crypto");
 const logger_1 = require("./logger");
 const manifest_1 = require("./manifest");
+const SIG_7Z = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c];
 const USER_AGENT = "Mozilla/5.0 (compatible; dx-cli-setup-script)";
 const TIMEOUT_MS = 120_000;
 /**
@@ -63,10 +65,38 @@ function zipStructureError(buf, minBytes) {
     }
     return "zipの終端レコードがありません(ダウンロードが途中で切れた可能性があります)";
 }
-function verifyZipFile(file, minBytes, expectedSha256) {
+function sevenZipStructureError(buf, minBytes) {
+    if (buf.length < minBytes) {
+        return `サイズが小さすぎます (${buf.length} bytes < ${minBytes} bytes)`;
+    }
+    if (!SIG_7Z.every((b, i) => buf[i] === b)) {
+        return "7zの先頭シグネチャがありません(HTMLのエラーページ等の可能性があります)";
+    }
+    return null;
+}
+function exeStructureError(buf, minBytes) {
+    if (buf.length < minBytes) {
+        return `サイズが小さすぎます (${buf.length} bytes < ${minBytes} bytes)`;
+    }
+    if (!(buf[0] === 0x4d && buf[1] === 0x5a)) {
+        return "exeの先頭シグネチャ(MZ)がありません(HTMLのエラーページ等の可能性があります)";
+    }
+    return null;
+}
+function structureError(kind, buf, minBytes) {
+    switch (kind) {
+        case "7z":
+            return sevenZipStructureError(buf, minBytes);
+        case "exe":
+            return exeStructureError(buf, minBytes);
+        default:
+            return zipStructureError(buf, minBytes);
+    }
+}
+function verifyZipFile(file, minBytes, expectedSha256, kind = "zip") {
     const buf = fs.readFileSync(file);
     const sha256 = (0, node_crypto_1.createHash)("sha256").update(buf).digest("hex");
-    const structural = zipStructureError(buf, minBytes);
+    const structural = structureError(kind, buf, minBytes);
     if (structural)
         return { ok: false, reason: structural, sha256 };
     if (expectedSha256 && expectedSha256.toLowerCase() !== sha256) {
@@ -99,7 +129,7 @@ function discard(file) {
 /** キャッシュ済みファイルの検証。マニフェストにハッシュがあればそれと、無ければ初回取得時の記録(sidecar)と照合する。 */
 function verifyCachedEntry(file, entry) {
     const expected = entry.sha256 ?? readSidecar(file);
-    return verifyZipFile(file, entry.minBytes, expected);
+    return verifyZipFile(file, entry.minBytes, expected, entry.kind ?? "zip");
 }
 /**
  * マニフェストのエントリをdestDirに取得する。
@@ -108,7 +138,7 @@ function verifyCachedEntry(file, entry) {
  * - 検証前のデータは `.part` に書き、通ったものだけを本来の名前にリネームする(壊れたファイルがキャッシュに残らない)
  * すべて失敗した場合はnullを返す。
  */
-async function ensureVerifiedZip(entry, destDir, opts) {
+async function ensureVerifiedFile(entry, destDir, opts) {
     fs.mkdirSync(destDir, { recursive: true });
     const dest = path.join(destDir, entry.fileName);
     const part = `${dest}.part`;
@@ -133,7 +163,7 @@ async function ensureVerifiedZip(entry, destDir, opts) {
                 continue;
             }
             fs.writeFileSync(part, Buffer.from(await res.arrayBuffer()));
-            const v = verifyZipFile(part, entry.minBytes, entry.sha256);
+            const v = verifyZipFile(part, entry.minBytes, entry.sha256, entry.kind ?? "zip");
             if (!v.ok) {
                 logger_1.logger.warn(`ダウンロードしたファイルを破棄します: ${v.reason}`);
                 fs.rmSync(part, { force: true });
@@ -156,3 +186,5 @@ async function ensureVerifiedZip(entry, destDir, opts) {
     }
     return null;
 }
+/** 旧名。zip以外(7z/exe)にも使えるようになったため ensureVerifiedFile に改名し、互換のため残している。 */
+exports.ensureVerifiedZip = ensureVerifiedFile;
