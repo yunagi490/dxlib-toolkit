@@ -121,7 +121,9 @@ function buildPlan(projectRoot, config, gppPath, options) {
     }
     args.push(...sources);
     if (config.dxlibMode === "windows") {
-        args.push("-finput-charset=UTF-8", "-fexec-charset=UTF-8", `-I${dxlibDir}`, "-DDX_GCC_COMPILE", "-DDX_NON_INLINE_ASM", "-mwindows", "-static-libgcc", "-static-libstdc++", "-o", outputPath, `-L${dxlibDir}`, ...WINDOWS_LINK_LIBS);
+        args.push("-finput-charset=UTF-8", "-fexec-charset=UTF-8", `-I${dxlibDir}`, "-DDX_GCC_COMPILE", 
+        // DX_NON_INLINE_ASM は DxCompileConfig.h 側で定義されるため、ここでは渡さない(渡すと "redefined" 警告になる)
+        "-mwindows", "-static-libgcc", "-static-libstdc++", "-o", outputPath, `-L${dxlibDir}`, ...WINDOWS_LINK_LIBS);
     }
     else if (config.dxlibMode === "native") {
         args.push(`-I${path.join(dxlibDir, "include")}`, "-DDX_GCC_COMPILE", "-DDX_NON_INLINE_ASM", "-o", outputPath, `-L${path.join(dxlibDir, "lib")}`, ...NATIVE_LINUX_LINK_LIBS);

@@ -73,7 +73,7 @@ export async function createCommand(rawName: string | undefined, args: string[])
   // .gitignore
   fs.writeFileSync(
     path.join(projectDir, ".gitignore"),
-    ["build/", "lib/DxLib/", "node_modules/", ""].join("\n")
+    ["build/", "lib/DxLib/", "node_modules/", "Log.txt", ""].join("\n")
   );
 
   logger.success("プロジェクトの足場を生成しました。");

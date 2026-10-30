@@ -13,6 +13,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 int main()
 #endif
 {
+    SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
     ChangeWindowMode(TRUE);
     SetGraphMode(640, 480, 32);
 

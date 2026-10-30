@@ -154,6 +154,9 @@ function mainCpp() {
 #include <chrono>
 
 #if defined(_WIN32)
+    // ソースはUTF-8(-fexec-charset=UTF-8)でコンパイルされるため、DxLibの文字コードもUTF-8にする。
+    // 未指定だとShift-JIS扱いになり、日本語が文字化けする。DxLib_Init より前に呼ぶ必要がある。
+    SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 #else
 int main()
