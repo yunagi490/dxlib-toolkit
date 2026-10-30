@@ -11,3 +11,4 @@ Thumbs.db
 /sandbox/
 /tmp-*/
 dx-cli/DxTest*/
+dx-cli/dist/
