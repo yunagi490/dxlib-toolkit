@@ -23,7 +23,7 @@ export const DXLIB_WINDOWS_GCC: ManifestEntry = {
   version: "3.25a",
   fileName: "DxLib_GCC3_25a.zip",
   sources: ["https://dxlib.xsrv.jp/DxLib/DxLib_GCC3_25a.zip"],
-  sha256: undefined,
+  sha256: "4656f11dc0cab3f23d0a7c44103c10d1b7132558964a32aab0dfb24c165660a7",
   minBytes: 1024 * 1024,
 };
 

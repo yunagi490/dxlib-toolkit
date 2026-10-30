@@ -97,6 +97,20 @@ export function gppVersion(gppPath: string): string | null {
   }
 }
 
+/** g++ のターゲットアーキテクチャ(`g++ -dumpmachine` の先頭要素)。判別できなければnull。 */
+export function gppArch(gppPath: string): "x86_64" | "i686" | null {
+  try {
+    const out = execFileSync(gppPath, ["-dumpmachine"], { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    if (out.startsWith("x86_64")) return "x86_64";
+    if (/^i[3-6]86/.test(out)) return "i686";
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function hasChocolatey(): boolean {
   return tryWhich("choco.exe") !== null;
 }
@@ -261,52 +275,88 @@ export function extractZip(zipPath: string, destDir: string): void {
   }
 }
 
-/** ディレクトリを再帰的に探索し、名前にkeywordを含む最初のフォルダを返す(深さ3まで)。 */
-export function findFolderRecursive(rootDir: string, keyword: string, maxDepth = 3): string | null {
-  function walk(dir: string, depth: number): string | null {
-    if (depth > maxDepth) return null;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory() && entry.name.includes(keyword)) {
-        return path.join(dir, entry.name);
-      }
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const found = walk(path.join(dir, entry.name), depth + 1);
-        if (found) return found;
-      }
-    }
-    return null;
+/** DxLibのコンパイラバージョン別フォルダの名前(例: 12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2, 4_8_1)。 */
+const GCC_VERSION_DIR_RE = /^\d+_\d+_\d+/;
+
+function subDirNames(dir: string): string[] {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return [];
   }
-  return walk(rootDir, 0);
 }
 
-/** GCC(MinGW)用フォルダ内のコンパイラバージョン別サブフォルダから、g++のバージョンに最も近いものを選ぶ。 */
-export function pickBestVersionFolder(gccFolder: string, gppPath: string | null): string | null {
-  const entries = fs
-    .readdirSync(gccFolder, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name);
+/**
+ * 展開したDxLib zipから、コンパイラバージョン別フォルダが並んでいる親フォルダを探す(幅優先)。
+ * フォルダ名(日本語名や "GCC" を含むか)には頼らず、「<数字>_<数字>_<数字>…」という名前の子フォルダの有無で判定するので、
+ * zipのフォルダ名や文字コードが変わっても影響を受けない。
+ * (以前は名前に "GCC" を含む最初のフォルダを選んでいたため、zip最上位の DxLib_GCC を拾って誤った場所を配置していた)
+ */
+export function findGccVersionRoot(rootDir: string, maxDepth = 4): string | null {
+  let level = [rootDir];
+  for (let depth = 0; depth <= maxDepth; depth++) {
+    const next: string[] = [];
+    for (const dir of level) {
+      const names = subDirNames(dir);
+      if (names.some((n) => GCC_VERSION_DIR_RE.test(n))) return dir;
+      for (const n of names) next.push(path.join(dir, n));
+    }
+    level = next;
+  }
+  return null;
+}
 
-  if (entries.length === 0) return null;
+function compareVersionDesc(a: string, b: string): number {
+  const pa = a.split("_").slice(0, 3).map((s) => parseInt(s, 10) || 0);
+  const pb = b.split("_").slice(0, 3).map((s) => parseInt(s, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pb[i] - pa[i];
+  }
+  return 0;
+}
+
+/**
+ * コンパイラバージョン別フォルダのうち、手元のg++に最も合うものを選ぶ。採点の優先順位:
+ *  1. g++のバージョンが完全一致(メジャー・マイナー・パッチ) → 最優先
+ *  2. メジャーが一致 → 次点。一致しない場合は、メジャーが近いほど有利
+ *  3. アーキテクチャ(x86_64 / i686)が g++ のターゲットと同じなら加点、違えば大きく減点
+ *     (32bit用ライブラリを64bitのg++で使うとリンクできないため)
+ * 同点なら新しいバージョンを選ぶ。g++が無い場合は x86_64 を想定する。
+ */
+export function pickBestVersionFolder(gccFolder: string, gppPath: string | null): string | null {
+  const candidates = subDirNames(gccFolder).filter((n) => GCC_VERSION_DIR_RE.test(n));
+  if (candidates.length === 0) return null;
 
   const version = gppPath ? gppVersion(gppPath) : null;
-  const major = version ? version.split(".")[0] : null;
+  const [majorStr, minorStr, patchStr] = version ? version.split(".") : [];
+  const major = majorStr ? parseInt(majorStr, 10) : NaN;
+  const arch = (gppPath ? gppArch(gppPath) : null) ?? "x86_64";
+  const otherArch = arch === "x86_64" ? "i686" : "x86_64";
 
-  if (major) {
-    const exactMatch = entries.find((name) => name.split("_")[0] === major);
-    if (exactMatch) return path.join(gccFolder, exactMatch);
-  }
+  const score = (name: string): number => {
+    const parts = name.split("_");
+    let s = 0;
+    if (!Number.isNaN(major)) {
+      const candMajor = parseInt(parts[0], 10);
+      if (candMajor === major) {
+        s += 50;
+        if (minorStr !== undefined && patchStr !== undefined && parts[1] === minorStr && parts[2] === patchStr) {
+          s += 100;
+        }
+      } else {
+        s -= Math.min(Math.abs(candMajor - major), 40);
+      }
+    }
+    if (name.includes(arch)) s += 20;
+    if (name.includes(otherArch)) s -= 50;
+    return s;
+  };
 
-  // フォールバック: 最初に見つかったもの
-  entries.sort();
-  return path.join(gccFolder, entries[0]);
+  candidates.sort((a, b) => score(b) - score(a) || compareVersionDesc(a, b) || (a < b ? -1 : a > b ? 1 : 0));
+  return path.join(gccFolder, candidates[0]);
 }
 
 export function copyRecursive(src: string, dest: string): void {
