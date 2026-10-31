@@ -65,21 +65,7 @@ function buildCommand(args) {
     fs.mkdirSync(path.join(root, "build"), { recursive: true });
     if (config.dxlibMode === "stub") {
         logger_1.logger.step("stubモードのため構文チェックのみ実行します(実行ファイルは生成されません)。");
-        const extraObjects = [];
-        if (config.scripting) {
-            if (!(0, quickjs_1.hasQuickJsSources)(root)) {
-                logger_1.logger.error("スクリプト層(QuickJS)のソースが lib/quickjs にありません。`dx update --force` で取得してください。");
-                process.exitCode = 1;
-                return { success: false, outputPath: "" };
-            }
-            const obj = (0, quickjs_1.ensureQuickJsObject)(root, gppPath);
-            if (!obj) {
-                process.exitCode = 1;
-                return { success: false, outputPath: "" };
-            }
-            extraObjects.push(obj);
-        }
-        const plan = (0, compiler_1.buildPlan)(root, config, gppPath, { release, extraObjects });
+        const plan = (0, compiler_1.syntaxCheckPlan)(root, config, gppPath);
         const result = (0, node_child_process_1.spawnSync)(plan.gppPath, plan.args, { cwd: root, stdio: "inherit" });
         if (result.status !== 0) {
             logger_1.logger.error("構文チェックでエラーが見つかりました。");
@@ -90,7 +76,21 @@ function buildCommand(args) {
         return { success: true, outputPath: "" };
     }
     logger_1.logger.step(`ビルド中... (${release ? "release" : "debug"})`);
-    const plan = (0, compiler_1.buildPlan)(root, config, gppPath, { release });
+    const extraObjects = [];
+    if (config.scripting) {
+        if (!(0, quickjs_1.hasQuickJsSources)(root)) {
+            logger_1.logger.error("スクリプト層(QuickJS)のソースが lib/quickjs にありません。`dx update --force` で取得してください。");
+            process.exitCode = 1;
+            return { success: false, outputPath: "" };
+        }
+        const obj = (0, quickjs_1.ensureQuickJsObject)(root, gppPath);
+        if (!obj) {
+            process.exitCode = 1;
+            return { success: false, outputPath: "" };
+        }
+        extraObjects.push(obj);
+    }
+    const plan = (0, compiler_1.buildPlan)(root, config, gppPath, { release, extraObjects });
     const result = (0, node_child_process_1.spawnSync)(plan.gppPath, plan.args, { cwd: root, stdio: "inherit" });
     if (result.status !== 0) {
         logger_1.logger.error("ビルドに失敗しました。");
