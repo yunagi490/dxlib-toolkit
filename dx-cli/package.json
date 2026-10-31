@@ -1,6 +1,6 @@
 {
   "name": "dx-cli",
-  "version": "0.2.0",
+  "version": "0.2.0-beta.1",
   "description": "DxLib(gcc/MinGW版)プロジェクト用の開発CLI (Vite/Nuxtライクな dx create/dev/build/run/test/add/update/doctor/toolchain。取得物の検証、MinGW-w64の取得、QuickJSのスクリプトシーンに対応)",
   "keywords": [
     "dxlib",

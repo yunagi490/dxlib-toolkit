@@ -24,7 +24,7 @@ import * as engineTpl from "../templates/engine";
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
 
-const DX_CLI_VERSION = "0.2.0";
+const DX_CLI_VERSION = "0.2.0-beta.1";
 
 export async function createCommand(rawName: string | undefined, args: string[]): Promise<void> {
   if (!rawName) {
