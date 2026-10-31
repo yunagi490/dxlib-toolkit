@@ -9,13 +9,15 @@ import {
   currentPlatform,
   ensureDxLibWindowsZip,
   extractZip,
-  findFolderRecursive,
+  findGccVersionRoot,
   pickBestVersionFolder,
   copyRecursive,
   cloneOrUpdateDxLibForLinux,
   buildDxLibForLinux,
   nativeDxLibSourceDir,
 } from "../core/env";
+import { DXLIB_WINDOWS_GCC } from "../core/manifest";
+import { ensureQuickJsSources } from "../core/quickjs";
 import * as vscodeTpl from "../templates/vscode";
 
 /**
@@ -32,17 +34,22 @@ export async function updateCommand(args: string[]): Promise<void> {
   logger.warn("src/ 配下のユーザーコードは更新対象外です(変更されません)。");
 
   if (!skipDxLib) {
-    await refreshDxLib(root, config.dxlibMode, args.includes("--force"));
+    const libFolder = await refreshDxLib(root, config.dxlibMode, args.includes("--force"));
+    if (libFolder) config.dxlib = { version: DXLIB_WINDOWS_GCC.version, libFolder };
     config.lastDxLibSyncAt = new Date().toISOString();
     writeConfig(root, config);
   }
-
+  if (config.scripting) {
+    await ensureQuickJsSources(root, { force: args.includes("--force") });
+  }
+  
   refreshVscode(root, config);
 
   logger.success("更新が完了しました。");
 }
 
-async function refreshDxLib(root: string, mode: "windows" | "native" | "stub", force: boolean): Promise<void> {
+/** DxLibを更新し、windows/stubモードでは使用したライブラリフォルダ名を返す(それ以外・失敗時はnull)。 */
+async function refreshDxLib(root: string, mode: "windows" | "native" | "stub", force: boolean): Promise<string | null> {
   const destDir = path.join(root, "lib", "DxLib");
 
   if (mode === "native") {
@@ -61,31 +68,33 @@ async function refreshDxLib(root: string, mode: "windows" | "native" | "stub", f
     if (fs.existsSync(includeSrc)) {
       copyRecursive(includeSrc, includeDest);
     }
-    return;
+    return null;
   }
 
   const zipPath = await ensureDxLibWindowsZip({ forceRedownload: force });
   if (!zipPath) {
     logger.warn("DxLib zipの取得に失敗したため、既存の lib/DxLib はそのままにします。");
-    return;
+    return null;
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dxlib_extract_"));
-  try {
+    try {
     extractZip(zipPath, tmpDir);
-    const gccFolder = findFolderRecursive(tmpDir, "GCC") ?? findFolderRecursive(tmpDir, "MinGW");
+    const gccFolder = findGccVersionRoot(tmpDir);
     if (!gccFolder) {
-      logger.warn("zip内にGCC(MinGW)用フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
-      return;
+      logger.warn("zip内にコンパイラバージョン別フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
+      return null;
     }
     const versionFolder = pickBestVersionFolder(gccFolder, findGpp());
     if (!versionFolder) {
       logger.warn("コンパイラバージョン別フォルダが見つかりませんでした。既存のlib/DxLibを保持します。");
-      return;
+      return null;
     }
+    logger.info(`使用するライブラリ: ${path.basename(versionFolder)}`);
     fs.rmSync(destDir, { recursive: true, force: true });
     copyRecursive(versionFolder, destDir);
     logger.success(`DxLibを更新しました: ${destDir}`);
+    return path.basename(versionFolder);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

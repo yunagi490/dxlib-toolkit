@@ -1,16 +1,22 @@
 {
   "name": "dx-cli",
-  "version": "0.1.0",
-  "description": "DxLib(gcc/MinGW版)プロジェクト用の開発CLI (Vite/Nuxtライクな dx create/dev/build/run/test/add/doctor)",
-  "license": "MIT",
+  "version": "0.2.0",
+  "description": "DxLib(gcc/MinGW版)プロジェクト用の開発CLI (Vite/Nuxtライクな dx create/dev/build/run/test/add/update/doctor/toolchain。取得物の検証、MinGW-w64の取得、QuickJSのスクリプトシーンに対応)",
+  "keywords": [
+    "dxlib",
+    "game",
+    "cli",
+    "mingw",
+    "quickjs"
+  ],  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit.git",
+    "url": "https://github.com/yunagi490/dxlib-toolkit.git",
     "directory": "dx-cli"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/tree/main/dx-cli#readme",
+  "homepage": "https://github.com/yunagi490/dxlib-toolkit/tree/main/dx-cli#readme",
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/dxlib-toolkit/issues"
+    "url": "https://github.com/yunagi490/dxlib-toolkit/issues"
   },
   "bin": {
     "dx": "dist/bin/dx.js"

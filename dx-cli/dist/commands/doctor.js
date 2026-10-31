@@ -38,6 +38,8 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const logger_1 = require("../core/logger");
 const config_1 = require("../core/config");
+const quickjs_1 = require("../core/quickjs");
+const compat_1 = require("../core/compat");
 const env_1 = require("../core/env");
 function doctorCommand() {
     logger_1.logger.divider();
@@ -120,6 +122,38 @@ function doctorCommand() {
                 detail: fs.existsSync(headerPath) ? headerPath : undefined,
                 hint: fs.existsSync(headerPath) ? undefined : "`dx update` でDxLibの再配置を試みてください。",
             });
+            if (config.dxlibMode === "windows") {
+                if (!config.dxlib) {
+                    checks.push({
+                        label: "DxLibライブラリの記録",
+                        ok: true,
+                        detail: "記録なし(`dx update` を実行すると記録され、g++との食い違いを検出できます)",
+                    });
+                }
+                else {
+                    const lib = (0, compat_1.parseLibFolder)(config.dxlib.libFolder);
+                    const gppInfo = gpp ? (0, compat_1.inspectGpp)(gpp) : null;
+                    const issues = lib && gppInfo ? (0, compat_1.checkCompat)(lib, gppInfo) : [];
+                    const warns = issues.filter((i) => i.level === "warn");
+                    checks.push({
+                        label: "DxLibライブラリとg++の組み合わせ",
+                        ok: warns.length === 0,
+                        detail: `DxLib ${config.dxlib.version} / ${config.dxlib.libFolder}`,
+                        hint: warns.length === 0 ? undefined : `${warns.map((i) => i.message).join(" ")} 合うMinGWは \`dx toolchain install\` で取得できます。`,
+                    });
+                    if (config.scripting) {
+                        const have = (0, quickjs_1.hasQuickJsSources)(root);
+                        checks.push({
+                            label: "スクリプト層 (QuickJS)",
+                            ok: have,
+                            detail: have ? `quickjs-ng ${config.scripting.version} (lib/quickjs)` : undefined,
+                            hint: have ? undefined : "`dx update --force` で取得できます。",
+                        });
+                    }
+                    for (const i of issues.filter((x) => x.level === "info"))
+                        logger_1.logger.info(i.message);
+                }
+            }
         }
     }
     else {
@@ -148,7 +182,7 @@ function doctorCommand() {
 }
 function buildGppHint() {
     if ((0, env_1.currentPlatform)() === "windows") {
-        return "MinGWが見つかりません。`choco install mingw` または https://winlibs.com/ から導入してください。";
+        return "MinGWが見つかりません。`dx toolchain install` でDxLibと一致するMinGW-w64を取得できます(または自分で導入してPATHに通してください)。";
     }
     if ((0, env_1.currentPlatform)() === "macos") {
         return "g++が見つかりません。`brew install gcc` を試してください(あるいはXcode Command Line Tools)。";

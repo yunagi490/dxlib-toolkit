@@ -10,18 +10,21 @@ import {
   findDebugger,
   ensureDxLibWindowsZip,
   extractZip,
-  findFolderRecursive,
+  findGccVersionRoot,
   pickBestVersionFolder,
   copyRecursive,
   cloneOrUpdateDxLibForLinux,
   buildDxLibForLinux,
   nativeDxLibSourceDir,
 } from "../core/env";
+import { ensureManagedToolchain } from "../core/toolchain";
+import { DXLIB_WINDOWS_GCC, QUICKJS_AMALGAM } from "../core/manifest";
+import { ensureQuickJsSources } from "../core/quickjs";
 import * as engineTpl from "../templates/engine";
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
 
-const DX_CLI_VERSION = "0.1.0";
+const DX_CLI_VERSION = "0.2.0";
 
 export async function createCommand(rawName: string | undefined, args: string[]): Promise<void> {
   if (!rawName) {
@@ -42,6 +45,22 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.divider();
 
   const mode = await resolveDxLibMode(args);
+  let useScript = args.includes("--script");
+  if (useScript && mode !== "windows") {
+    logger.warn("--script は現在 windows モードのみ対応です。スクリプト層なしで作成します。");
+    useScript = false;
+  }
+  if (mode === "windows" && process.platform === "win32" && !findGpp()) {
+    logger.warn("g++ (MinGW-w64) が見つかりません。");
+    logger.plain("  DxLib 3.25a のライブラリと一致するMinGW-w64 12.2.0 (約70MB) を、");
+    logger.plain("  dx-cli専用フォルダ(~/.dxlib-setup/toolchain)へ取得できます。システムの設定は変更しません。");
+    if (await confirm("取得しますか?", false)) {
+      const res = await ensureManagedToolchain();
+      if (!res.gppPath) logger.warn(`${res.reason ?? "取得できませんでした。"} 後で \`dx toolchain install\` で再試行できます。`);
+    } else {
+      logger.info("スキップしました。MinGW-w64を自分で導入するか、後で `dx toolchain install` を実行してください。");
+    }
+  }
 
   fs.mkdirSync(projectDir, { recursive: true });
   fs.mkdirSync(path.join(projectDir, "src", "engine"), { recursive: true });
@@ -53,10 +72,16 @@ export async function createCommand(rawName: string | undefined, args: string[])
   fs.writeFileSync(path.join(projectDir, "src", "engine", "IScene.h"), engineTpl.isSceneHeader());
   fs.writeFileSync(path.join(projectDir, "src", "engine", "SceneManager.h"), engineTpl.sceneManagerHeader());
   fs.writeFileSync(path.join(projectDir, "src", "engine", "SceneManager.cpp"), engineTpl.sceneManagerSource());
-  fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.h"), engineTpl.titleSceneHeader());
-  fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.cpp"), engineTpl.titleSceneSource());
-  fs.writeFileSync(path.join(projectDir, "src", "main.cpp"), engineTpl.mainCpp());
-
+  if (useScript) {
+    fs.mkdirSync(path.join(projectDir, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.h"), engineTpl.scriptSceneHeader());
+    fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.cpp"), engineTpl.scriptSceneSource());
+    fs.writeFileSync(path.join(projectDir, "scripts", "title.js"), engineTpl.titleScript());
+  } else {
+    fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.h"), engineTpl.titleSceneHeader());
+    fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.cpp"), engineTpl.titleSceneSource());
+  }
+  fs.writeFileSync(path.join(projectDir, "src", "main.cpp"), engineTpl.mainCpp(useScript));
   // テスト
   fs.writeFileSync(path.join(projectDir, "tests", "dx_test.h"), testTpl.dxTestHeader());
   fs.writeFileSync(path.join(projectDir, "tests", "example_test.cpp"), testTpl.exampleTestSource());
@@ -67,20 +92,29 @@ export async function createCommand(rawName: string | undefined, args: string[])
     dxlibMode: mode,
     cppStandard: "c++17",
     createdWithDxCliVersion: DX_CLI_VERSION,
+    ...(useScript ? { scripting: { engine: "quickjs" as const, version: QUICKJS_AMALGAM.version } } : {}),
   };
   writeConfig(projectDir, config);
 
   // .gitignore
   fs.writeFileSync(
     path.join(projectDir, ".gitignore"),
-    ["build/", "lib/DxLib/", "node_modules/", ""].join("\n")
+    ["build/", "lib/DxLib/", "lib/quickjs/", "node_modules/", "Log.txt", ""].join("\n")
   );
 
   logger.success("プロジェクトの足場を生成しました。");
 
   // DxLib本体の取得
-  await setupDxLib(projectDir, mode);
-
+    const libFolder = await setupDxLib(projectDir, mode);
+    if (libFolder) {
+      config.dxlib = { version: DXLIB_WINDOWS_GCC.version, libFolder };
+      writeConfig(projectDir, config);
+  }
+  // スクリプト層(QuickJS)の取得
+  if (useScript) {
+    const ok = await ensureQuickJsSources(projectDir);
+    if (!ok) logger.warn("QuickJSの取得に失敗しました。後で `dx update --force` で再試行できます。");
+  }
   // .vscode生成
   setupVscode(projectDir, config);
 
@@ -114,7 +148,8 @@ async function resolveDxLibMode(args: string[]): Promise<DxLibMode> {
   return idx === 0 ? "native" : "stub";
 }
 
-async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
+/** DxLibを配置し、windows/stubモードでは使用したライブラリフォルダ名を返す(それ以外・失敗時はnull)。 */
+async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<string | null> {
   const destDir = path.join(projectDir, "lib", "DxLib");
 
   if (mode === "native") {
@@ -135,7 +170,7 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
     }
 
     copyArtifacts(srcDir, libDest, [".a", ".so"]);
-    return;
+    return destDir;
   }
 
   // windows / stub は同じWindows版gcc zipを使う
@@ -143,24 +178,26 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
   if (!zipPath) {
     logger.warn("DxLib zipの自動取得に失敗しました。手動でダウンロードしてキャッシュフォルダに置いてから");
     logger.warn("`dx doctor` を実行し、再度配置を試みてください。");
-    return;
+    return null;
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dxlib_extract_"));
-  try {
+    try {
     extractZip(zipPath, tmpDir);
-    const gccFolder = findFolderRecursive(tmpDir, "GCC") ?? findFolderRecursive(tmpDir, "MinGW");
+    const gccFolder = findGccVersionRoot(tmpDir);
     if (!gccFolder) {
-      logger.warn(`zip内にGCC(MinGW)用フォルダが見つかりませんでした: ${tmpDir}`);
-      return;
+      logger.warn(`zip内にコンパイラバージョン別フォルダが見つかりませんでした: ${tmpDir}`);
+      return null;
     }
     const versionFolder = pickBestVersionFolder(gccFolder, findGpp());
     if (!versionFolder) {
       logger.warn(`コンパイラバージョン別フォルダが見つかりませんでした: ${gccFolder}`);
-      return;
+      return null;
     }
+    logger.info(`使用するライブラリ: ${path.basename(versionFolder)}`);
     copyRecursive(versionFolder, destDir);
     logger.success(`DxLibを配置しました: ${destDir}`);
+    return path.basename(versionFolder);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

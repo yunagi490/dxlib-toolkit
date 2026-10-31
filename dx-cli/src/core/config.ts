@@ -14,6 +14,19 @@ export interface DxConfig {
   createdWithDxCliVersion: string;
   /** 最後にDxLibを取得/更新した日時(ISO8601) */
   lastDxLibSyncAt?: string;
+  /** スクリプト層(`dx create --script` で有効化)。現在はQuickJSのみ */
+  scripting?: {
+    engine: "quickjs";
+    /** 取得したQuickJS(quickjs-ng)のバージョン */
+    version: string;
+  };
+  /** 配置したDxLibライブラリの記録(windows/stubモード)。dx doctor / dx build が手元のg++との食い違いを警告するために使う */
+  dxlib?: {
+  /** DxLibのバージョン(例: "3.25a") */
+  version: string;
+  /** 使用したコンパイラ別フォルダ名(例: "12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2") */
+  libFolder: string;
+  };
 }
 
 export const CONFIG_FILENAME = "dx.config.json";

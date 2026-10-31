@@ -39,8 +39,14 @@ interface Buffer extends Uint8Array {
 }
 
 declare const Buffer: {
-  from(data: ArrayBuffer | string, encodingOrOffset?: string | number): Buffer;
+  from(data: ArrayBuffer | Uint8Array | string, encodingOrOffset?: string | number): Buffer;
+  concat(list: Buffer[]): Buffer;
 };
+
+declare class AbortController {
+  signal: unknown;
+  abort(): void;
+}
 
 // fetch / Response はNode18+のグローバル実装を素朴に型付け(本物のlib.dom.d.tsは使わない)
 interface FetchResponse {
@@ -48,9 +54,19 @@ interface FetchResponse {
   status: number;
   text(): Promise<string>;
   arrayBuffer(): Promise<ArrayBuffer>;
-}
+  readonly body: {
+    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }> };
+  } | null;
+ }
 
-declare function fetch(url: string, init?: { headers?: Record<string, string> }): Promise<FetchResponse>;
+declare const AbortSignal: {
+  timeout(ms: number): unknown;
+};
+
+declare function fetch(
+  url: string,
+  init?: { headers?: Record<string, string>; signal?: unknown }
+): Promise<FetchResponse>;
 
 declare module "node:fs" {
   export interface Dirent {
@@ -66,7 +82,9 @@ declare module "node:fs" {
   export function readdirSync(path: string): string[];
   export function readdirSync(path: string, options: { withFileTypes: true }): Dirent[];
   export function readFileSync(path: string, encoding: string): string;
+  export function readFileSync(path: string): Buffer;
   export function writeFileSync(path: string, data: string | Buffer, encoding?: string): void;
+  export function renameSync(oldPath: string, newPath: string): void;
   export function copyFileSync(src: string, dest: string): void;
   export function statSync(path: string): Stats;
   export function rmSync(path: string, options?: { recursive?: boolean; force?: boolean }): void;
@@ -83,6 +101,14 @@ declare module "node:path" {
   export function resolve(...parts: string[]): string;
   export function dirname(p: string): string;
   export function basename(p: string, ext?: string): string;
+}
+
+declare module "node:crypto" {
+  export interface Hash {
+    update(data: Buffer | string): Hash;
+    digest(encoding: "hex"): string;
+  }
+  export function createHash(algorithm: string): Hash;
 }
 
 declare module "node:os" {
