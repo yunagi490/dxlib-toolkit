@@ -44,7 +44,40 @@ const logger_1 = require("./logger");
 const manifest_1 = require("./manifest");
 const SIG_7Z = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c];
 const USER_AGENT = "Mozilla/5.0 (compatible; dx-cli-setup-script)";
-const TIMEOUT_MS = 120_000;
+// 全体ではなく「無通信」の時間で打ち切る。70MB級のファイルでも、データが流れている限り待つ。
+const CONNECT_TIMEOUT_MS = 30_000;
+const IDLE_TIMEOUT_MS = 30_000;
+/** 応答本文を読み切る。チャンクが届くたびに無通信タイマーをリセットする。 */
+async function fetchBuffer(url) {
+    const ac = new AbortController();
+    let timer = setTimeout(() => ac.abort(), CONNECT_TIMEOUT_MS);
+    const rearm = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => ac.abort(), IDLE_TIMEOUT_MS);
+    };
+    try {
+        const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: ac.signal });
+        if (!res.ok)
+            return { status: res.status, data: null };
+        rearm();
+        if (!res.body)
+            return { status: res.status, data: Buffer.from(await res.arrayBuffer()) };
+        const reader = res.body.getReader();
+        const chunks = [];
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done)
+                break;
+            if (value)
+                chunks.push(Buffer.from(value));
+            rearm();
+        }
+        return { status: res.status, data: Buffer.concat(chunks) };
+    }
+    finally {
+        clearTimeout(timer);
+    }
+}
 /**
  * zipとして最低限成立しているかを確認する(先頭のローカルヘッダと、末尾の終端レコード)。
  * HTMLのエラーページや、途中で切れたダウンロードを弾くのが目的。
@@ -154,15 +187,12 @@ async function ensureVerifiedFile(entry, destDir, opts) {
     for (const url of (0, manifest_1.resolveSources)(entry)) {
         logger_1.logger.step(`ダウンロード中: ${url}`);
         try {
-            const res = await fetch(url, {
-                headers: { "User-Agent": USER_AGENT },
-                signal: AbortSignal.timeout(TIMEOUT_MS),
-            });
-            if (!res.ok) {
+            const res = await fetchBuffer(url);
+            if (!res.data) {
                 logger_1.logger.warn(`取得に失敗しました (HTTP ${res.status}): ${url}`);
                 continue;
             }
-            fs.writeFileSync(part, Buffer.from(await res.arrayBuffer()));
+            fs.writeFileSync(part, res.data);
             const v = verifyZipFile(part, entry.minBytes, entry.sha256, entry.kind ?? "zip");
             if (!v.ok) {
                 logger_1.logger.warn(`ダウンロードしたファイルを破棄します: ${v.reason}`);

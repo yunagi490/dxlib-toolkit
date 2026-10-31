@@ -39,8 +39,14 @@ interface Buffer extends Uint8Array {
 }
 
 declare const Buffer: {
-  from(data: ArrayBuffer | string, encodingOrOffset?: string | number): Buffer;
+  from(data: ArrayBuffer | Uint8Array | string, encodingOrOffset?: string | number): Buffer;
+  concat(list: Buffer[]): Buffer;
 };
+
+declare class AbortController {
+  signal: unknown;
+  abort(): void;
+}
 
 // fetch / Response はNode18+のグローバル実装を素朴に型付け(本物のlib.dom.d.tsは使わない)
 interface FetchResponse {
@@ -48,7 +54,10 @@ interface FetchResponse {
   status: number;
   text(): Promise<string>;
   arrayBuffer(): Promise<ArrayBuffer>;
-}
+  readonly body: {
+    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }> };
+  } | null;
+ }
 
 declare const AbortSignal: {
   timeout(ms: number): unknown;

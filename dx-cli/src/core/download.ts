@@ -6,7 +6,36 @@ import { ManifestEntry, resolveSources } from "./manifest";
 
 const SIG_7Z = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c];
 const USER_AGENT = "Mozilla/5.0 (compatible; dx-cli-setup-script)";
-const TIMEOUT_MS = 120_000;
+// 全体ではなく「無通信」の時間で打ち切る。70MB級のファイルでも、データが流れている限り待つ。
+const CONNECT_TIMEOUT_MS = 30_000;
+const IDLE_TIMEOUT_MS = 30_000;
+
+/** 応答本文を読み切る。チャンクが届くたびに無通信タイマーをリセットする。 */
+async function fetchBuffer(url: string): Promise<{ status: number; data: Buffer | null }> {
+  const ac = new AbortController();
+  let timer = setTimeout(() => ac.abort(), CONNECT_TIMEOUT_MS);
+  const rearm = (): void => {
+    clearTimeout(timer);
+    timer = setTimeout(() => ac.abort(), IDLE_TIMEOUT_MS);
+  };
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: ac.signal });
+    if (!res.ok) return { status: res.status, data: null };
+    rearm();
+    if (!res.body) return { status: res.status, data: Buffer.from(await res.arrayBuffer()) };
+    const reader = res.body.getReader();
+    const chunks: Buffer[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(Buffer.from(value));
+      rearm();
+    }
+    return { status: res.status, data: Buffer.concat(chunks) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export interface Verification {
   ok: boolean;
@@ -142,16 +171,12 @@ export async function ensureVerifiedFile(
   for (const url of resolveSources(entry)) {
     logger.step(`ダウンロード中: ${url}`);
     try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      if (!res.ok) {
+      const res = await fetchBuffer(url);
+      if (!res.data) {
         logger.warn(`取得に失敗しました (HTTP ${res.status}): ${url}`);
         continue;
       }
-      fs.writeFileSync(part, Buffer.from(await res.arrayBuffer()));
-
+      fs.writeFileSync(part, res.data);
       const v = verifyZipFile(part, entry.minBytes, entry.sha256, entry.kind ?? "zip");
       if (!v.ok) {
         logger.warn(`ダウンロードしたファイルを破棄します: ${v.reason}`);
