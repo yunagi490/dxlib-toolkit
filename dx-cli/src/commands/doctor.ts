@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { logger, color } from "../core/logger";
 import { findProjectRoot, readConfig } from "../core/config";
+import { checkCompat, inspectGpp, parseLibFolder } from "../core/compat";
 import {
   currentPlatform,
   findGpp,
@@ -111,6 +112,27 @@ export function doctorCommand(): void {
         detail: fs.existsSync(headerPath) ? headerPath : undefined,
         hint: fs.existsSync(headerPath) ? undefined : "`dx update` でDxLibの再配置を試みてください。",
       });
+      if (config.dxlibMode === "windows") {
+        if (!config.dxlib) {
+          checks.push({
+            label: "DxLibライブラリの記録",
+            ok: true,
+            detail: "記録なし(`dx update` を実行すると記録され、g++との食い違いを検出できます)",
+          });
+        } else {
+          const lib = parseLibFolder(config.dxlib.libFolder);
+          const gppInfo = gpp ? inspectGpp(gpp) : null;
+          const issues = lib && gppInfo ? checkCompat(lib, gppInfo) : [];
+          const warns = issues.filter((i) => i.level === "warn");
+          checks.push({
+            label: "DxLibライブラリとg++の組み合わせ",
+            ok: warns.length === 0,
+            detail: `DxLib ${config.dxlib.version} / ${config.dxlib.libFolder}`,
+            hint: warns.length === 0 ? undefined : `${warns.map((i) => i.message).join(" ")} 合うMinGWは \`dx toolchain install\` で取得できます。`,
+          });
+          for (const i of issues.filter((x) => x.level === "info")) logger.info(i.message);
+        }
+      }
     }
   } else {
     checks.push({

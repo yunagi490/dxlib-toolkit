@@ -41,6 +41,7 @@ const logger_1 = require("../core/logger");
 const config_1 = require("../core/config");
 const env_1 = require("../core/env");
 const compiler_1 = require("../core/compiler");
+const compat_1 = require("../core/compat");
 function buildCommand(args) {
     const release = args.includes("--release");
     const { root, config } = (0, config_1.requireProjectRoot)(process.cwd());
@@ -49,6 +50,16 @@ function buildCommand(args) {
         logger_1.logger.error("g++ が見つかりません。`dx doctor` で環境を確認してください。");
         process.exitCode = 1;
         return { success: false, outputPath: "" };
+    }
+    if (config.dxlibMode === "windows" && config.dxlib) {
+        const lib = (0, compat_1.parseLibFolder)(config.dxlib.libFolder);
+        const gppInfo = (0, compat_1.inspectGpp)(gppPath);
+        if (lib && gppInfo) {
+            for (const issue of (0, compat_1.checkCompat)(lib, gppInfo)) {
+                if (issue.level === "warn")
+                    logger_1.logger.warn(`${issue.message} (\`dx doctor\` で詳細を確認できます)`);
+            }
+        }
     }
     fs.mkdirSync(path.join(root, "build"), { recursive: true });
     if (config.dxlibMode === "stub") {

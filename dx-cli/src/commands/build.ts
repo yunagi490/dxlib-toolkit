@@ -5,6 +5,7 @@ import { logger } from "../core/logger";
 import { requireProjectRoot } from "../core/config";
 import { findGpp } from "../core/env";
 import { buildPlan, syntaxCheckPlan } from "../core/compiler";
+import { checkCompat, inspectGpp, parseLibFolder } from "../core/compat";
 
 export interface BuildResult {
   success: boolean;
@@ -21,6 +22,16 @@ export function buildCommand(args: string[]): BuildResult {
     process.exitCode = 1;
     return { success: false, outputPath: "" };
   }
+  if (config.dxlibMode === "windows" && config.dxlib) {
+    const lib = parseLibFolder(config.dxlib.libFolder);
+    const gppInfo = inspectGpp(gppPath);
+    if (lib && gppInfo) {
+      for (const issue of checkCompat(lib, gppInfo)) {
+        if (issue.level === "warn") logger.warn(`${issue.message} (\`dx doctor\` で詳細を確認できます)`);
+      }
+    }
+  }
+
 
   fs.mkdirSync(path.join(root, "build"), { recursive: true });
 

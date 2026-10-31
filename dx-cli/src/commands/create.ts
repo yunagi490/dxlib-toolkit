@@ -18,6 +18,7 @@ import {
   nativeDxLibSourceDir,
 } from "../core/env";
 import { ensureManagedToolchain } from "../core/toolchain";
+import { DXLIB_WINDOWS_GCC } from "../core/manifest";
 import * as engineTpl from "../templates/engine";
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
@@ -91,7 +92,11 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.success("プロジェクトの足場を生成しました。");
 
   // DxLib本体の取得
-  await setupDxLib(projectDir, mode);
+    const libFolder = await setupDxLib(projectDir, mode);
+    if (libFolder) {
+      config.dxlib = { version: DXLIB_WINDOWS_GCC.version, libFolder };
+      writeConfig(projectDir, config);
+  }
 
   // .vscode生成
   setupVscode(projectDir, config);
@@ -126,7 +131,8 @@ async function resolveDxLibMode(args: string[]): Promise<DxLibMode> {
   return idx === 0 ? "native" : "stub";
 }
 
-async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
+/** DxLibを配置し、windows/stubモードでは使用したライブラリフォルダ名を返す(それ以外・失敗時はnull)。 */
+async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<string | null> {
   const destDir = path.join(projectDir, "lib", "DxLib");
 
   if (mode === "native") {
@@ -147,7 +153,7 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
     }
 
     copyArtifacts(srcDir, libDest, [".a", ".so"]);
-    return;
+    return destDir;
   }
 
   // windows / stub は同じWindows版gcc zipを使う
@@ -155,7 +161,7 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
   if (!zipPath) {
     logger.warn("DxLib zipの自動取得に失敗しました。手動でダウンロードしてキャッシュフォルダに置いてから");
     logger.warn("`dx doctor` を実行し、再度配置を試みてください。");
-    return;
+    return null;
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dxlib_extract_"));
@@ -164,16 +170,17 @@ async function setupDxLib(projectDir: string, mode: DxLibMode): Promise<void> {
     const gccFolder = findGccVersionRoot(tmpDir);
     if (!gccFolder) {
       logger.warn(`zip内にコンパイラバージョン別フォルダが見つかりませんでした: ${tmpDir}`);
-      return;
+      return null;
     }
     const versionFolder = pickBestVersionFolder(gccFolder, findGpp());
     if (!versionFolder) {
       logger.warn(`コンパイラバージョン別フォルダが見つかりませんでした: ${gccFolder}`);
-      return;
+      return null;
     }
     logger.info(`使用するライブラリ: ${path.basename(versionFolder)}`);
     copyRecursive(versionFolder, destDir);
     logger.success(`DxLibを配置しました: ${destDir}`);
+    return path.basename(versionFolder);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
