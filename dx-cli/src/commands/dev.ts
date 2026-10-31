@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { ChildProcess } from "node:child_process";
 import { logger } from "../core/logger";
 import { requireProjectRoot } from "../core/config";
+import { compileScripts, isTypeScriptProject } from "../core/typescript";
 import { buildCommand } from "./build";
 import { spawnBuiltExecutable } from "./run";
 
@@ -19,6 +20,7 @@ export function devCommand(): void {
   let debounceTimer: NodeJS.Timeout | null = null;
   let building = false;
   let rebuildQueued = false;
+  let lastOutputPath: string | null = null;
 
   function killCurrentProcess(): void {
     if (currentProcess && !currentProcess.killed) {
@@ -58,12 +60,44 @@ export function devCommand(): void {
     }
 
     if (result.outputPath && fs.existsSync(result.outputPath)) {
-      logger.step("起動中...");
-      currentProcess = spawnBuiltExecutable(result.outputPath, root);
-      currentProcess.on("exit", (code) => {
-        logger.info(`アプリが終了しました (code: ${code ?? "null"})。ファイル変更を待機中...`);
-      });
+      lastOutputPath = result.outputPath;
+      launch(result.outputPath);
     }
+  }
+
+  function launch(outputPath: string): void {
+    logger.step("起動中...");
+    const proc = spawnBuiltExecutable(outputPath, root);
+    currentProcess = proc;
+    proc.on("exit", (code) => {
+      // 再起動のために自分で止めた場合は、すでに別プロセスに置き換わっているので何も言わない
+      if (currentProcess !== proc && currentProcess !== null) return;
+      if (currentProcess === proc) currentProcess = null;
+      logger.info(`アプリが終了しました (code: ${code ?? "null"})。ファイル変更を待機中...`);
+    });
+  }
+
+  /**
+   * scripts/ の変更時。スクリプトは起動時に読み込まれるだけなので、C++の再ビルドは不要。
+   * 実行ファイルを起動し直すだけで反映される。
+   */
+  function restartOnly(): void {
+    if (config.dxlibMode === "stub") return;
+    if (building) {
+      rebuildQueued = true;
+      return;
+    }
+    if (!lastOutputPath || !fs.existsSync(lastOutputPath)) {
+      // まだ一度もビルドできていない場合は通常の再ビルドに任せる
+      rebuildAndRestart();
+      return;
+    }
+    logger.divider();
+    logger.step("スクリプトの変更を検知。アプリを再起動します...(再ビルドなし)");
+    const old = currentProcess;
+    currentProcess = null;
+    if (old && !old.killed) old.kill();
+    launch(lastOutputPath);
   }
 
   function scheduleRebuild(): void {
@@ -71,11 +105,38 @@ export function devCommand(): void {
     debounceTimer = setTimeout(rebuildAndRestart, DEBOUNCE_MS);
   }
 
-  const srcDir = path.join(root, "src");
-  logger.info(`監視中: ${srcDir}`);
-  logger.info("Ctrl+C で終了します。");
+  const tsMode = isTypeScriptProject(config);
 
-  watchRecursive(srcDir, scheduleRebuild);
+  /** TypeScriptのスクリプト: .js に変換できたときだけ再起動する(型エラー中は動いているアプリを止めない) */
+  function recompileScriptsAndRestart(): void {
+    if (!compileScripts(root)) {
+      logger.warn("型エラーのため再起動しません。直して保存すると再試行します。");
+      return;
+    }
+    restartOnly();
+  }
+
+  let scriptTimer: NodeJS.Timeout | null = null;
+  function scheduleRestart(): void {
+    if (scriptTimer) clearTimeout(scriptTimer);
+    scriptTimer = setTimeout(tsMode ? recompileScriptsAndRestart : restartOnly, DEBOUNCE_MS);
+  }
+
+  const srcDir = path.join(root, "src");
+  const scriptsDir = path.join(root, "scripts");
+  logger.info(`監視中: ${srcDir}`);
+  watchRecursive(srcDir, scheduleRebuild, [".cpp", ".h", ".hpp"]);
+
+  if (config.scripting && fs.existsSync(scriptsDir)) {
+    logger.info(
+      tsMode
+        ? `監視中: ${scriptsDir} (.ts の変更時は変換して、C++の再ビルドなしで再起動します)`
+        : `監視中: ${scriptsDir} (変更時は再ビルドせずに再起動します)`
+    );
+    // TypeScriptでは、変換の出力(.js)ではなく元の .ts を監視する(出力で再度反応しないように)
+    watchRecursive(scriptsDir, scheduleRestart, tsMode ? [".ts"] : [".js"]);
+  }
+  logger.info("Ctrl+C で終了します。");
 
   process.on("SIGINT", () => {
     logger.info("\n終了します。");
@@ -91,13 +152,13 @@ export function devCommand(): void {
  * fs.watch はディレクトリ単位なので、サブディレクトリ含め再帰的に監視対象を貼る。
  * (Node18+ の fs.watch は { recursive: true } がLinuxで未対応の場合があるため、手動で再帰登録する)
  */
-function watchRecursive(dir: string, onChange: () => void): void {
+function watchRecursive(dir: string, onChange: () => void, extensions: string[]): void {
   if (!fs.existsSync(dir)) return;
 
   const watch = (target: string) => {
     try {
       fs.watch(target, { persistent: true }, (_event, filename) => {
-        if (filename && (filename.endsWith(".cpp") || filename.endsWith(".h") || filename.endsWith(".hpp"))) {
+        if (filename && extensions.some((ext) => filename.endsWith(ext))) {
           onChange();
         }
       });
@@ -109,7 +170,7 @@ function watchRecursive(dir: string, onChange: () => void): void {
   watch(dir);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      watchRecursive(path.join(dir, entry.name), onChange);
+      watchRecursive(path.join(dir, entry.name), onChange, extensions);
     }
   }
 }

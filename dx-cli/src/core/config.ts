@@ -19,13 +19,15 @@ export interface DxConfig {
     engine: "quickjs";
     /** 取得したQuickJS(quickjs-ng)のバージョン */
     version: string;
+    /** スクリプトの言語。省略時は javascript。typescript は scripts/*.ts を tsc で .js に変換して使う */
+    language?: "javascript" | "typescript";
   };
   /** 配置したDxLibライブラリの記録(windows/stubモード)。dx doctor / dx build が手元のg++との食い違いを警告するために使う */
   dxlib?: {
-  /** DxLibのバージョン(例: "3.25a") */
-  version: string;
-  /** 使用したコンパイラ別フォルダ名(例: "12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2") */
-  libFolder: string;
+    /** DxLibのバージョン(例: "3.25a") */
+    version: string;
+    /** 使用したコンパイラ別フォルダ名(例: "12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2") */
+    libFolder: string;
   };
 }
 

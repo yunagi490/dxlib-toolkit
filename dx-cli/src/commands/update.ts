@@ -18,6 +18,8 @@ import {
 } from "../core/env";
 import { DXLIB_WINDOWS_GCC } from "../core/manifest";
 import { ensureQuickJsSources } from "../core/quickjs";
+import { isTypeScriptProject, hasTypeScript } from "../core/typescript"; 
+import * as tsTpl from "../templates/typescript";      
 import * as vscodeTpl from "../templates/vscode";
 
 /**
@@ -41,6 +43,15 @@ export async function updateCommand(args: string[]): Promise<void> {
   }
   if (config.scripting) {
     await ensureQuickJsSources(root, { force: args.includes("--force") });
+    // TypeScript: エンジン管理の型定義(dx.d.ts)を最新にする。tsconfig.json は無いときだけ作る
+    if (isTypeScriptProject(config)) {
+      const dir = path.join(root, "scripts");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "dx.d.ts"), tsTpl.dxDts());
+      const tsconfig = path.join(dir, "tsconfig.json");
+      if (!fs.existsSync(tsconfig)) fs.writeFileSync(tsconfig, tsTpl.scriptsTsconfig());
+      logger.success("scripts/dx.d.ts を更新しました。");
+    }
   }
   
   refreshVscode(root, config);

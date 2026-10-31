@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { logger, color } from "../core/logger";
 import { findProjectRoot, readConfig } from "../core/config";
 import { hasQuickJsSources } from "../core/quickjs";
+import { hasTypeScript, isTypeScriptProject } from "../core/typescript";
 import { checkCompat, inspectGpp, parseLibFolder } from "../core/compat";
 import {
   currentPlatform,
@@ -139,6 +140,15 @@ export function doctorCommand(): void {
               detail: have ? `quickjs-ng ${config.scripting.version} (lib/quickjs)` : undefined,
               hint: have ? undefined : "`dx update --force` で取得できます。",
             });
+          if (isTypeScriptProject(config)) {
+              const haveTs = hasTypeScript(root);
+              checks.push({
+                label: "スクリプト用 TypeScript",
+                ok: haveTs,
+                detail: haveTs ? "node_modules/typescript" : undefined,
+                hint: haveTs ? undefined : "プロジェクトのフォルダで `npm install` を実行してください。",
+              });
+            }
           }
           for (const i of issues.filter((x) => x.level === "info")) logger.info(i.message);
         }

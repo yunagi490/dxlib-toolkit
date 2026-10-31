@@ -8,6 +8,7 @@ declare const process: {
   platform: string;
   arch: string;
   exitCode: number | undefined;
+  execPath: string;
   env: Record<string, string | undefined>;
   cwd(): string;
   exit(code?: number): never;
@@ -128,7 +129,7 @@ declare module "node:child_process" {
     kill(signal?: string): boolean;
     on(event: "exit", listener: (code: number | null) => void): void;
   }
-  export function execSync(command: string, options?: { stdio?: unknown }): Buffer;
+  export function execSync(command: string, options?: { cwd?: string; stdio?: unknown }): Buffer;
   export function execFileSync(file: string, args: string[], options?: { stdio?: unknown }): Buffer;
   export function spawnSync(
     command: string,

@@ -43,6 +43,7 @@ const env_1 = require("../core/env");
 const compiler_1 = require("../core/compiler");
 const quickjs_1 = require("../core/quickjs");
 const compat_1 = require("../core/compat");
+const typescript_1 = require("../core/typescript");
 function buildCommand(args) {
     const release = args.includes("--release");
     const { root, config } = (0, config_1.requireProjectRoot)(process.cwd());
@@ -78,6 +79,11 @@ function buildCommand(args) {
     logger_1.logger.step(`ビルド中... (${release ? "release" : "debug"})`);
     const extraObjects = [];
     if (config.scripting) {
+        // TypeScriptのスクリプトは、ビルドの前に .js へ変換する(実行ファイルが読むのは scripts/*.js)
+        if ((0, typescript_1.isTypeScriptProject)(config) && !(0, typescript_1.compileScripts)(root)) {
+            process.exitCode = 1;
+            return { success: false, outputPath: "" };
+        }
         if (!(0, quickjs_1.hasQuickJsSources)(root)) {
             logger_1.logger.error("スクリプト層(QuickJS)のソースが lib/quickjs にありません。`dx update --force` で取得してください。");
             process.exitCode = 1;
