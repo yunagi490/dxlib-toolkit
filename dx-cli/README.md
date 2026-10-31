@@ -56,6 +56,7 @@ yarn build
 | `dx clean` | `build/` を削除 |
 | `dx update [--vscode-only] [--force]` | DxLib本体と`.vscode`設定を最新化。**`src/`配下のユーザーコードは一切変更しません** |
 | `dx doctor` | 環境診断(g++/デバッガ/DxLibキャッシュ/プロジェクト設定の状態を一覧表示) |
+| `dx toolchain [status\|install [--force]\|remove]` | (Windows)DxLibと一致するMinGW-w64の取得・状態確認・削除。後述の「MinGW-w64の自動取得」を参照 |
 | `dx add scene <Name>` | `IScene`を継承するシーンクラスを`src/scenes/`に生成 |
 | `dx add class <Name>` | 素のクラス(.h/.cpp)を`src/`に生成 |
 
@@ -78,7 +79,27 @@ Linuxでは対話式でnative/stubを選べます。
 内部実装は別物のため、公式Windows版と完全に同一の挙動とは限りません。
 
 ---
+## MinGW-w64の自動取得(Windows・任意)
 
+MinGWの導入が難しい人向けの補助機能です。**検出が主で、取得は確認を取ってから行う補助**という位置づけです。
+
+- `dx create`(windowsモード)で `g++` が見つからないときだけ、「取得しますか?」と確認します(標準は「いい」)。
+  `dx toolchain install` でいつでも手動実行できます。
+- 取得するのは、DxLib 3.25a同梱のライブラリ(`12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2`)と一致す
+  [niXman/mingw-builds](https://github.com/niXman/mingw-builds-binaries) の 12.2.0 (win32スレッ/SEH/UCRT, 約70MB)です。
+  7z形式のため、展開用に7-Zip公式の `7zr.exe`(バージョン固定)も合わせて取得します。
+- 保存先は `~/.dxlib-setup/toolchain/` です。システムへのインストール、PATHの変更、管理者権限は不要です。
+- **既存のMinGWは上書きしません。** `g++` はPATHと既知の場所を先に探し、見つからないときだけ取得したものを使ます。
+- 取得物はサイズ・シグネチャ・SHA-256を検証し、一時フォルダへ展開 → `g++ -dumpversion` と
+  テストコードのコンパイルで動作確認 → 正式な場所へ移動、の順で配置します。検証に失敗したものは残りません。
+- ダウンロードのタイムアウトは、全体の時間ではなく「30秒間データが届かない場合」です。遅い回線でも完走します。
+- dx-cliは取得物を再配布していません。実行時に上流(GitHub)から直接取得します。
+
+セキュリティソフトが展開中のファイルを隔離すると、展開に失敗することがあります(MinGW付属のツールが誤検知される合があります)。
+その場合は案内が表示されます。隔離の一覧を確認し、内容を自分で判断したうえで復元または除外設定をしてから
+`dx toolchain install --force` を再実行してください。設定を変えたくない場合は、MinGW-w64を自分で導入してATHに通してください。
+
+---
 ## プロジェクト構成 (dx create後)
 
 ```
@@ -149,6 +170,8 @@ VSCode上のビルドとターミナルからの `dx build` でズレが生じ�
 - DxLibのSHA-256は `src/core/manifest.ts` に固定されています。公式のファイルが差し替えられた場合は、
   ハッシュ不一致として取得を拒否します。DxLibのバージョンを上げるときは、`version` / `fileName` / `sources` /
   `sha256` をまとめて更新してください。
+  - 管理下のMinGW-w64(`dx toolchain`)はDxLib 3.25a用の1組(12.2.0)のみ対応です。上流(niXman)はチェックサムを公開していないため、
+  `src/core/manifest.ts` のSHA-256はdx-cli側で実測して固定した値です。
 - `dx dev` のファイル監視は `fs.watch` を使用しており、一部のファイルシステム(特にネットワークドライブ等)
   では変更検知が不安定になることがあります。問題がある場合は `dx build && dx run` を手動実行してください。
 - `dx test` はDxLib本体にリンクしないため、DxLibのAPIを直接呼ぶコードのテストには使えません。
