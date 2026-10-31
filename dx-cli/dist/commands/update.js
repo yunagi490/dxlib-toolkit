@@ -41,6 +41,7 @@ const logger_1 = require("../core/logger");
 const config_1 = require("../core/config");
 const env_1 = require("../core/env");
 const manifest_1 = require("../core/manifest");
+const quickjs_1 = require("../core/quickjs");
 const vscodeTpl = __importStar(require("../templates/vscode"));
 /**
  * dx update は以下のみを更新対象とする(src/, tests/ のユーザーコードには一切触れない):
@@ -59,6 +60,9 @@ async function updateCommand(args) {
             config.dxlib = { version: manifest_1.DXLIB_WINDOWS_GCC.version, libFolder };
         config.lastDxLibSyncAt = new Date().toISOString();
         (0, config_1.writeConfig)(root, config);
+    }
+    if (config.scripting) {
+        await (0, quickjs_1.ensureQuickJsSources)(root, { force: args.includes("--force") });
     }
     refreshVscode(root, config);
     logger_1.logger.success("更新が完了しました。");

@@ -63,6 +63,19 @@ export const MINGW_WINDOWS_X64: ManifestEntry = {
 };
 
 /**
+ * スクリプト層に使うQuickJS(quickjs-ng)。1ファイルにまとめたamalgam版(MITライセンス)。
+ * 中身: quickjs-amalgam.c / quickjs.h / quickjs-libc.h
+ * dx-cliは再配布せず、`dx create --script` の実行時に上流から取得して検証する。
+ */
+export const QUICKJS_AMALGAM: ManifestEntry = {
+  id: "quickjs-ng-amalgam",
+  version: "0.17.0",
+  fileName: "quickjs-amalgam-0.17.0.zip",
+  sources: ["https://github.com/quickjs-ng/quickjs/releases/download/v0.17.0/quickjs-amalgam.zip"],
+  sha256: "a0955463c74809173a253ff87365095e6972e8b171cfb6aa8a1e781adf35cfeb",
+  minBytes: 100 * 1024,
+};
+/**
  * 取得元の一覧を、実際に試す順に返す。
  * 環境変数 DX_MIRROR_URL(例: https://example.com/dxlib-mirror)があれば、
  * `<DX_MIRROR_URL>/<fileName>` を公式より先に試す。公式サイトが落ちている・リンクが変わった場合の逃げ道になる。

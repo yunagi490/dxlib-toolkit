@@ -5,6 +5,7 @@ import { logger } from "../core/logger";
 import { requireProjectRoot } from "../core/config";
 import { findGpp } from "../core/env";
 import { buildPlan, syntaxCheckPlan } from "../core/compiler";
+import { ensureQuickJsObject, hasQuickJsSources } from "../core/quickjs";
 import { checkCompat, inspectGpp, parseLibFolder } from "../core/compat";
 
 export interface BuildResult {
@@ -49,7 +50,21 @@ export function buildCommand(args: string[]): BuildResult {
   }
 
   logger.step(`ビルド中... (${release ? "release" : "debug"})`);
-  const plan = buildPlan(root, config, gppPath, { release });
+      const extraObjects: string[] = [];
+    if (config.scripting) {
+      if (!hasQuickJsSources(root)) {
+        logger.error("スクリプト層(QuickJS)のソースが lib/quickjs にありません。`dx update --force` で取得してください。");
+        process.exitCode = 1;
+        return { success: false, outputPath: "" };
+      }
+      const obj = ensureQuickJsObject(root, gppPath);
+      if (!obj) {
+        process.exitCode = 1;
+        return { success: false, outputPath: "" };
+      }
+      extraObjects.push(obj);
+    }
+  const plan = buildPlan(root, config, gppPath, { release, extraObjects });
   const result = spawnSync(plan.gppPath, plan.args, { cwd: root, stdio: "inherit" });
 
   if (result.status !== 0) {

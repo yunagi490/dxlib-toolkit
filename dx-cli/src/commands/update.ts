@@ -17,6 +17,7 @@ import {
   nativeDxLibSourceDir,
 } from "../core/env";
 import { DXLIB_WINDOWS_GCC } from "../core/manifest";
+import { ensureQuickJsSources } from "../core/quickjs";
 import * as vscodeTpl from "../templates/vscode";
 
 /**
@@ -38,7 +39,10 @@ export async function updateCommand(args: string[]): Promise<void> {
     config.lastDxLibSyncAt = new Date().toISOString();
     writeConfig(root, config);
   }
-
+  if (config.scripting) {
+    await ensureQuickJsSources(root, { force: args.includes("--force") });
+  }
+  
   refreshVscode(root, config);
 
   logger.success("更新が完了しました。");

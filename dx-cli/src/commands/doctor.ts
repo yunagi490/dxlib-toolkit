@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { logger, color } from "../core/logger";
 import { findProjectRoot, readConfig } from "../core/config";
+import { hasQuickJsSources } from "../core/quickjs";
 import { checkCompat, inspectGpp, parseLibFolder } from "../core/compat";
 import {
   currentPlatform,
@@ -130,6 +131,15 @@ export function doctorCommand(): void {
             detail: `DxLib ${config.dxlib.version} / ${config.dxlib.libFolder}`,
             hint: warns.length === 0 ? undefined : `${warns.map((i) => i.message).join(" ")} 合うMinGWは \`dx toolchain install\` で取得できます。`,
           });
+          if (config.scripting) {
+            const have = hasQuickJsSources(root);
+            checks.push({
+              label: "スクリプト層 (QuickJS)",
+              ok: have,
+              detail: have ? `quickjs-ng ${config.scripting.version} (lib/quickjs)` : undefined,
+              hint: have ? undefined : "`dx update --force` で取得できます。",
+            });
+          }
           for (const i of issues.filter((x) => x.level === "info")) logger.info(i.message);
         }
       }

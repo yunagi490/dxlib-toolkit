@@ -18,7 +18,8 @@ import {
   nativeDxLibSourceDir,
 } from "../core/env";
 import { ensureManagedToolchain } from "../core/toolchain";
-import { DXLIB_WINDOWS_GCC } from "../core/manifest";
+import { DXLIB_WINDOWS_GCC, QUICKJS_AMALGAM } from "../core/manifest";
+import { ensureQuickJsSources } from "../core/quickjs";
 import * as engineTpl from "../templates/engine";
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
@@ -44,6 +45,11 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.divider();
 
   const mode = await resolveDxLibMode(args);
+  let useScript = args.includes("--script");
+  if (useScript && mode !== "windows") {
+    logger.warn("--script は現在 windows モードのみ対応です。スクリプト層なしで作成します。");
+    useScript = false;
+  }
   if (mode === "windows" && process.platform === "win32" && !findGpp()) {
     logger.warn("g++ (MinGW-w64) が見つかりません。");
     logger.plain("  DxLib 3.25a のライブラリと一致するMinGW-w64 12.2.0 (約70MB) を、");
@@ -66,10 +72,16 @@ export async function createCommand(rawName: string | undefined, args: string[])
   fs.writeFileSync(path.join(projectDir, "src", "engine", "IScene.h"), engineTpl.isSceneHeader());
   fs.writeFileSync(path.join(projectDir, "src", "engine", "SceneManager.h"), engineTpl.sceneManagerHeader());
   fs.writeFileSync(path.join(projectDir, "src", "engine", "SceneManager.cpp"), engineTpl.sceneManagerSource());
-  fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.h"), engineTpl.titleSceneHeader());
-  fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.cpp"), engineTpl.titleSceneSource());
-  fs.writeFileSync(path.join(projectDir, "src", "main.cpp"), engineTpl.mainCpp());
-
+  if (useScript) {
+    fs.mkdirSync(path.join(projectDir, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.h"), engineTpl.scriptSceneHeader());
+    fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.cpp"), engineTpl.scriptSceneSource());
+    fs.writeFileSync(path.join(projectDir, "scripts", "title.js"), engineTpl.titleScript());
+  } else {
+    fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.h"), engineTpl.titleSceneHeader());
+    fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.cpp"), engineTpl.titleSceneSource());
+  }
+  fs.writeFileSync(path.join(projectDir, "src", "main.cpp"), engineTpl.mainCpp(useScript));
   // テスト
   fs.writeFileSync(path.join(projectDir, "tests", "dx_test.h"), testTpl.dxTestHeader());
   fs.writeFileSync(path.join(projectDir, "tests", "example_test.cpp"), testTpl.exampleTestSource());
@@ -80,13 +92,14 @@ export async function createCommand(rawName: string | undefined, args: string[])
     dxlibMode: mode,
     cppStandard: "c++17",
     createdWithDxCliVersion: DX_CLI_VERSION,
+    ...(useScript ? { scripting: { engine: "quickjs" as const, version: QUICKJS_AMALGAM.version } } : {}),
   };
   writeConfig(projectDir, config);
 
   // .gitignore
   fs.writeFileSync(
     path.join(projectDir, ".gitignore"),
-    ["build/", "lib/DxLib/", "node_modules/", "Log.txt", ""].join("\n")
+    ["build/", "lib/DxLib/", "lib/quickjs/", "node_modules/", "Log.txt", ""].join("\n")
   );
 
   logger.success("プロジェクトの足場を生成しました。");
@@ -97,7 +110,11 @@ export async function createCommand(rawName: string | undefined, args: string[])
       config.dxlib = { version: DXLIB_WINDOWS_GCC.version, libFolder };
       writeConfig(projectDir, config);
   }
-
+  // スクリプト層(QuickJS)の取得
+  if (useScript) {
+    const ok = await ensureQuickJsSources(projectDir);
+    if (!ok) logger.warn("QuickJSの取得に失敗しました。後で `dx update --force` で再試行できます。");
+  }
   // .vscode生成
   setupVscode(projectDir, config);
 

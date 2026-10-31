@@ -38,6 +38,7 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const logger_1 = require("../core/logger");
 const config_1 = require("../core/config");
+const quickjs_1 = require("../core/quickjs");
 const compat_1 = require("../core/compat");
 const env_1 = require("../core/env");
 function doctorCommand() {
@@ -140,6 +141,15 @@ function doctorCommand() {
                         detail: `DxLib ${config.dxlib.version} / ${config.dxlib.libFolder}`,
                         hint: warns.length === 0 ? undefined : `${warns.map((i) => i.message).join(" ")} 合うMinGWは \`dx toolchain install\` で取得できます。`,
                     });
+                    if (config.scripting) {
+                        const have = (0, quickjs_1.hasQuickJsSources)(root);
+                        checks.push({
+                            label: "スクリプト層 (QuickJS)",
+                            ok: have,
+                            detail: have ? `quickjs-ng ${config.scripting.version} (lib/quickjs)` : undefined,
+                            hint: have ? undefined : "`dx update --force` で取得できます。",
+                        });
+                    }
                     for (const i of issues.filter((x) => x.level === "info"))
                         logger_1.logger.info(i.message);
                 }

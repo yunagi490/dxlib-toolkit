@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MINGW_WINDOWS_X64 = exports.SEVENZR_WINDOWS = exports.DXLIB_WINDOWS_GCC = void 0;
+exports.QUICKJS_AMALGAM = exports.MINGW_WINDOWS_X64 = exports.SEVENZR_WINDOWS = exports.DXLIB_WINDOWS_GCC = void 0;
 exports.resolveSources = resolveSources;
 exports.DXLIB_WINDOWS_GCC = {
     id: "dxlib-windows-gcc",
@@ -38,6 +38,19 @@ exports.MINGW_WINDOWS_X64 = {
     ],
     sha256: "d2911a1b1a4947a592b3b82968847a0ad05c11d19a16c64b55bcc9ddd45618e7",
     minBytes: 50 * 1024 * 1024,
+};
+/**
+ * スクリプト層に使うQuickJS(quickjs-ng)。1ファイルにまとめたamalgam版(MITライセンス)。
+ * 中身: quickjs-amalgam.c / quickjs.h / quickjs-libc.h
+ * dx-cliは再配布せず、`dx create --script` の実行時に上流から取得して検証する。
+ */
+exports.QUICKJS_AMALGAM = {
+    id: "quickjs-ng-amalgam",
+    version: "0.17.0",
+    fileName: "quickjs-amalgam-0.17.0.zip",
+    sources: ["https://github.com/quickjs-ng/quickjs/releases/download/v0.17.0/quickjs-amalgam.zip"],
+    sha256: "a0955463c74809173a253ff87365095e6972e8b171cfb6aa8a1e781adf35cfeb",
+    minBytes: 100 * 1024,
 };
 /**
  * 取得元の一覧を、実際に試す順に返す。

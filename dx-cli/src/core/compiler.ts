@@ -6,6 +6,8 @@ import { currentPlatform } from "./env";
 export interface BuildOptions {
   /** リリースビルド(最適化・デバッグ情報なし)かどうか */
   release: boolean;
+  /** リンクに加える追加のオブジェクトファイル(スクリプト層のQuickJSなど) */
+  extraObjects?: string[];
 }
 
 export interface BuildPlan {
@@ -104,7 +106,7 @@ export function buildPlan(
     args.push("-g");
   }
 
-  args.push(...sources);
+  args.push(...sources, ...(options.extraObjects ?? []));
 
   if (config.dxlibMode === "windows") {
     args.push(
@@ -119,7 +121,9 @@ export function buildPlan(
       "-o",
       outputPath,
       `-L${dxlibDir}`,
-      ...WINDOWS_LINK_LIBS
+      ...WINDOWS_LINK_LIBS,
+      // QuickJS(quickjs-libc)がWindowsのソケットAPIを参照するため。スクリプト層を使わない場合は付けない
+      ...(options.extraObjects && options.extraObjects.length > 0 ? ["-lws2_32"] : [])
     );
   } else if (config.dxlibMode === "native") {
     args.push(
