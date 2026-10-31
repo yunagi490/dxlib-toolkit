@@ -43,19 +43,25 @@ yarn build
 ```
 
 ---
+## 特長
 
+- **再現できる環境構築**: DxLibはバージョンを固定し、サイズ・構造・SHA-256を検証して取得します(ミラー指定も可)。
+- **MinGW-w64の取得(任意・Windows)**: DxLib同梱のライブラリと一致するMinGW-w64を、確認のうえ取得します。既存のMinGWは上書きしません。
+- **組み合わせの記録と警告**: 使ったライブラリを `dx.config.json` に記録し、手元のg++と食い違えば警告します(ビルドは止めません)。
+- **JavaScriptでシーンを書ける(任意)**: `dx create --script` で、QuickJSによるスクリプトシーン付きのプロジェクトを作れます。
+- **Node.js 18以上が必要です。**
 ## コマンド一覧
 
 | コマンド | 説明 |
 |---|---|
-| `dx create <name> [--mode=windows\|native\|stub]` | 新規プロジェクトを作成。DxLib本体の取得・配置・`.vscode`生成まで一括実行 |
-| `dx dev` | 開発モード。`src/**/*.{cpp,h,hpp}` を監視し、変更があれば自動で再ビルド&再起動 |
+| `dx create <name> [--mode=windows\|native\|stub] [--script]` | 新規プロジェクトを作成。DxLib本体の取得・配置・`.vscode`生成まで一括実行。`--script`(windowsモードのみ)でスクリプト層(QuickJS)付きにする |
+| `dx dev` | 開発モード。`src/**/*.{cpp,h,hpp}` を監視し、変更があれば自動で再ビルド&再起動(`scripts/` はまだ監視しません) |
 | `dx build [--release]` | ビルド(デフォルトはdebug)。`--release`で最適化ビルド |
 | `dx run` | ビルドして実行 |
 | `dx test` | `tests/` 配下の `*.cpp` を独立ビルド&実行。exit codeのみで成否判定(フレームワーク不使用) |
 | `dx clean` | `build/` を削除 |
-| `dx update [--vscode-only] [--force]` | DxLib本体と`.vscode`設定を最新化。**`src/`配下のユーザーコードは一切変更しません** |
-| `dx doctor` | 環境診断(g++/デバッガ/DxLibキャッシュ/プロジェクト設定の状態を一覧表示) |
+| `dx update [--vscode-only] [--force]` | DxLib本体と`.vscode`設定を最新化(スクリプト層があればQuickJSも取得)。`--force`で再取得。**`src/`配下のユーザーコードは一切変更しません** |
+| `dx doctor` | 環境診断(g++/デバッガ/DxLibキャッシュ/プロジェクト設定、ライブラリとg++の組み合わせ、スクリプト層の状態を一覧表示) |
 | `dx toolchain [status\|install [--force]\|remove]` | (Windows)DxLibと一致するMinGW-w64の取得・状態確認・削除。後述の「MinGW-w64の自動取得」を参照 |
 | `dx add scene <Name>` | `IScene`を継承するシーンクラスを`src/scenes/`に生成 |
 | `dx add class <Name>` | 素のクラス(.h/.cpp)を`src/`に生成 |
@@ -83,35 +89,67 @@ Linuxでは対話式でnative/stubを選べます。
 
 MinGWの導入が難しい人向けの補助機能です。**検出が主で、取得は確認を取ってから行う補助**という位置づけです。
 
-- `dx create`(windowsモード)で `g++` が見つからないときだけ、「取得しますか?」と確認します(標準は「いい」)。
+- `dx create`(windowsモード)で `g++` が見つからないときだけ、「取得しますか?」と確認します(標準は「いいえ」)。
   `dx toolchain install` でいつでも手動実行できます。
-- 取得するのは、DxLib 3.25a同梱のライブラリ(`12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2`)と一致す
-  [niXman/mingw-builds](https://github.com/niXman/mingw-builds-binaries) の 12.2.0 (win32スレッ/SEH/UCRT, 約70MB)です。
+- 取得するのは、DxLib 3.25a同梱のライブラリ(`12_2_0_x86_64_release_win32_seh_ucrt_rt_v10_rev2`)と一致する
+  [niXman/mingw-builds](https://github.com/niXman/mingw-builds-binaries) の12.2.0 (win32スレッド/SEH/UCRT, 約70MB)です。
   7z形式のため、展開用に7-Zip公式の `7zr.exe`(バージョン固定)も合わせて取得します。
 - 保存先は `~/.dxlib-setup/toolchain/` です。システムへのインストール、PATHの変更、管理者権限は不要です。
-- **既存のMinGWは上書きしません。** `g++` はPATHと既知の場所を先に探し、見つからないときだけ取得したものを使ます。
+- **既存のMinGWは上書きしません。** `g++` はPATHと既知の場所を先に探し、見つからないときだけ取得したものを使います。
 - 取得物はサイズ・シグネチャ・SHA-256を検証し、一時フォルダへ展開 → `g++ -dumpversion` と
   テストコードのコンパイルで動作確認 → 正式な場所へ移動、の順で配置します。検証に失敗したものは残りません。
 - ダウンロードのタイムアウトは、全体の時間ではなく「30秒間データが届かない場合」です。遅い回線でも完走します。
 - dx-cliは取得物を再配布していません。実行時に上流(GitHub)から直接取得します。
 
-セキュリティソフトが展開中のファイルを隔離すると、展開に失敗することがあります(MinGW付属のツールが誤検知される合があります)。
+セキュリティソフトが展開中のファイルを隔離すると、展開に失敗することがあります (MinGW付属のツールが誤検知される場合があります)。
 その場合は案内が表示されます。隔離の一覧を確認し、内容を自分で判断したうえで復元または除外設定をしてから
-`dx toolchain install --force` を再実行してください。設定を変えたくない場合は、MinGW-w64を自分で導入してATHに通してください。
+`dx toolchain install --force` を再実行してください。設定を変えたくない場合は、MinGW-w64を自分で導入してPATHに通してください。
 
+---
+## スクリプト層(QuickJS・任意)
+
+`dx create <name> --mode=windows --script` で、JavaScriptでシーンを書けるプロジェクトを作れます
+(現在はwindowsモードのみ対応。native/stubでは無視されます)。
+
+```
+dx create MyGame --mode=windows --script
+cd MyGame
+dx run
+```
+
+- 最初のシーンは `scripts/title.js` です。保存して `dx run` し直すと反映されます。
+- スクリプトは、グローバル関数 `init()` / `update(dt)` / `draw()` を(定義されていれば)呼ばれます。`dt` はです。
+- スクリプトから使えるAPI(現在は最小限です):
+
+| 関数 | 説明 |
+|---|---|
+| `drawText(x, y, text [, r, g, b])` | 文字を描く |
+| `drawBox(x1, y1, x2, y2 [, r, g, b])` | 塗りつぶしの四角形を描く |
+| `isKeyDown(keyCode)` | キーが押されているか(DxLibの `KEY_INPUT_*` の値を渡す) |
+
+- スクリプトのエラーは、ウィンドウアプリでコンソールが無いため、**ウィンドウの左上に赤い文字で表示**されます。
+- 仕組み: [quickjs-ng](https://github.com/quickjs-ng/quickjs) の amalgam版(MIT)を、`dx create --cript` の実行時に
+  上流から取得してSHA-256を検証し、`lib/quickjs/` に配置します。dx-cliは再配布しません。
+  初回のビルド時にだけCファイルをコンパイルし、`build/quickjs.o` にキャッシュします(2回目以降は再利用)。
+- `dx.config.json` の `scripting` に、使っているQuickJSのバージョンが記録されます。
+  `lib/quickjs/` が無い場合は `dx update --force` で取得し直せます。
+- TypeScriptはまだ対応していません(QuickJSはJavaScriptのみ読めます)。
 ---
 ## プロジェクト構成 (dx create後)
 
 ```
 MyGame/
-├── dx.config.json         # プロジェクト設定(name, dxlibMode, cppStandard等)
+├── dx.config.json         # プロジェクト設定(name, dxlibMode, cppStandard, 使用ライブラリの記録 dxlib, scripting 等)
 ├── src/
 │   ├── main.cpp            # エントリポイント。SceneManagerでTitleSceneを起動
 │   ├── engine/
 │   │   ├── IScene.h         # シーン共通インターフェース(Init/Update/Draw/End)
 │   │   ├── SceneManager.h/.cpp
+│   │   └── ScriptScene.h/.cpp  # (--script のみ)JavaScriptのシーンを動かすシーン
 │   └── scenes/
-│       └── TitleScene.h/.cpp
+│       └── TitleScene.h/.cpp   # (--script なしの場合)
+├── scripts/                  # (--script のみ)title.js 等
+├── lib/quickjs/              # (--script のみ)QuickJS。取得物(.gitignore対象)
 ├── tests/
 │   ├── dx_test.h            # 自作アサートマクロ(DX_CHECK / DX_PASS)
 │   └── example_test.cpp
@@ -170,7 +208,11 @@ VSCode上のビルドとターミナルからの `dx build` でズレが生じ�
 - DxLibのSHA-256は `src/core/manifest.ts` に固定されています。公式のファイルが差し替えられた場合は、
   ハッシュ不一致として取得を拒否します。DxLibのバージョンを上げるときは、`version` / `fileName` / `sources` /
   `sha256` をまとめて更新してください。
-  - 管理下のMinGW-w64(`dx toolchain`)はDxLib 3.25a用の1組(12.2.0)のみ対応です。上流(niXman)はチェックサムを公開していないため、
+- 管理下のMinGW-w64(`dx toolchain`)はDxLib 3.25a用の1組(12.2.0)のみ対応です。上流(niXman)はチェックサムを公開していないため、
+- ライブラリとg++の食い違い(アーキテクチャ・スレッドモデル・gccのメジャーバージョン)は、`dx doctor` と `dx build` が
+  警告するだけで、ビルドは止めません。判別できない項目は比較しません。
+- スクリプト層(QuickJS)はwindowsモードのみです。`dx dev` は `scripts/` の変更を監視しないため、
+  JavaScriptを直したときは `dx run` し直してください。QuickJSのバージョンとSHA-256は `src/core/manifest.ts` に固定されています。
   `src/core/manifest.ts` のSHA-256はdx-cli側で実測して固定した値です。
 - `dx dev` のファイル監視は `fs.watch` を使用しており、一部のファイルシステム(特にネットワークドライブ等)
   では変更検知が不安定になることがあります。問題がある場合は `dx build && dx run` を手動実行してください。

@@ -47,7 +47,7 @@ const quickjs_1 = require("../core/quickjs");
 const engineTpl = __importStar(require("../templates/engine"));
 const testTpl = __importStar(require("../templates/test"));
 const vscodeTpl = __importStar(require("../templates/vscode"));
-const DX_CLI_VERSION = "0.1.0";
+const DX_CLI_VERSION = "0.2.0";
 async function createCommand(rawName, args) {
     if (!rawName) {
         logger_1.logger.error("プロジェクト名を指定してください: dx create <name>");
