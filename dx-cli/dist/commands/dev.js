@@ -50,6 +50,7 @@ function devCommand() {
     let debounceTimer = null;
     let building = false;
     let rebuildQueued = false;
+    let lastOutputPath = null;
     function killCurrentProcess() {
         if (currentProcess && !currentProcess.killed) {
             currentProcess.kill();
@@ -81,22 +82,67 @@ function devCommand() {
             return;
         }
         if (result.outputPath && fs.existsSync(result.outputPath)) {
-            logger_1.logger.step("起動中...");
-            currentProcess = (0, run_1.spawnBuiltExecutable)(result.outputPath, root);
-            currentProcess.on("exit", (code) => {
-                logger_1.logger.info(`アプリが終了しました (code: ${code ?? "null"})。ファイル変更を待機中...`);
-            });
+            lastOutputPath = result.outputPath;
+            launch(result.outputPath);
         }
+    }
+    function launch(outputPath) {
+        logger_1.logger.step("起動中...");
+        const proc = (0, run_1.spawnBuiltExecutable)(outputPath, root);
+        currentProcess = proc;
+        proc.on("exit", (code) => {
+            // 再起動のために自分で止めた場合は、すでに別プロセスに置き換わっているので何も言わない
+            if (currentProcess !== proc && currentProcess !== null)
+                return;
+            if (currentProcess === proc)
+                currentProcess = null;
+            logger_1.logger.info(`アプリが終了しました (code: ${code ?? "null"})。ファイル変更を待機中...`);
+        });
+    }
+    /**
+     * scripts/ の変更時。スクリプトは起動時に読み込まれるだけなので、C++の再ビルドは不要。
+     * 実行ファイルを起動し直すだけで反映される。
+     */
+    function restartOnly() {
+        if (config.dxlibMode === "stub")
+            return;
+        if (building) {
+            rebuildQueued = true;
+            return;
+        }
+        if (!lastOutputPath || !fs.existsSync(lastOutputPath)) {
+            // まだ一度もビルドできていない場合は通常の再ビルドに任せる
+            rebuildAndRestart();
+            return;
+        }
+        logger_1.logger.divider();
+        logger_1.logger.step("スクリプトの変更を検知。アプリを再起動します...(再ビルドなし)");
+        const old = currentProcess;
+        currentProcess = null;
+        if (old && !old.killed)
+            old.kill();
+        launch(lastOutputPath);
     }
     function scheduleRebuild() {
         if (debounceTimer)
             clearTimeout(debounceTimer);
         debounceTimer = setTimeout(rebuildAndRestart, DEBOUNCE_MS);
     }
+    let scriptTimer = null;
+    function scheduleRestart() {
+        if (scriptTimer)
+            clearTimeout(scriptTimer);
+        scriptTimer = setTimeout(restartOnly, DEBOUNCE_MS);
+    }
     const srcDir = path.join(root, "src");
+    const scriptsDir = path.join(root, "scripts");
     logger_1.logger.info(`監視中: ${srcDir}`);
+    watchRecursive(srcDir, scheduleRebuild, [".cpp", ".h", ".hpp"]);
+    if (config.scripting && fs.existsSync(scriptsDir)) {
+        logger_1.logger.info(`監視中: ${scriptsDir} (変更時は再ビルドせずに再起動します)`);
+        watchRecursive(scriptsDir, scheduleRestart, [".js"]);
+    }
     logger_1.logger.info("Ctrl+C で終了します。");
-    watchRecursive(srcDir, scheduleRebuild);
     process.on("SIGINT", () => {
         logger_1.logger.info("\n終了します。");
         killCurrentProcess();
@@ -109,13 +155,13 @@ function devCommand() {
  * fs.watch はディレクトリ単位なので、サブディレクトリ含め再帰的に監視対象を貼る。
  * (Node18+ の fs.watch は { recursive: true } がLinuxで未対応の場合があるため、手動で再帰登録する)
  */
-function watchRecursive(dir, onChange) {
+function watchRecursive(dir, onChange, extensions) {
     if (!fs.existsSync(dir))
         return;
     const watch = (target) => {
         try {
             fs.watch(target, { persistent: true }, (_event, filename) => {
-                if (filename && (filename.endsWith(".cpp") || filename.endsWith(".h") || filename.endsWith(".hpp"))) {
+                if (filename && extensions.some((ext) => filename.endsWith(ext))) {
                     onChange();
                 }
             });
@@ -127,7 +173,7 @@ function watchRecursive(dir, onChange) {
     watch(dir);
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (entry.isDirectory()) {
-            watchRecursive(path.join(dir, entry.name), onChange);
+            watchRecursive(path.join(dir, entry.name), onChange, extensions);
         }
     }
 }
