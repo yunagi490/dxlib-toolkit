@@ -39,6 +39,7 @@ const path = __importStar(require("node:path"));
 const logger_1 = require("../core/logger");
 const config_1 = require("../core/config");
 const quickjs_1 = require("../core/quickjs");
+const typescript_1 = require("../core/typescript");
 const compat_1 = require("../core/compat");
 const env_1 = require("../core/env");
 function doctorCommand() {
@@ -149,6 +150,15 @@ function doctorCommand() {
                             detail: have ? `quickjs-ng ${config.scripting.version} (lib/quickjs)` : undefined,
                             hint: have ? undefined : "`dx update --force` で取得できます。",
                         });
+                        if ((0, typescript_1.isTypeScriptProject)(config)) {
+                            const haveTs = (0, typescript_1.hasTypeScript)(root);
+                            checks.push({
+                                label: "スクリプト用 TypeScript",
+                                ok: haveTs,
+                                detail: haveTs ? "node_modules/typescript" : undefined,
+                                hint: haveTs ? undefined : "プロジェクトのフォルダで `npm install` を実行してください。",
+                            });
+                        }
                     }
                     for (const i of issues.filter((x) => x.level === "info"))
                         logger_1.logger.info(i.message);

@@ -42,6 +42,8 @@ const config_1 = require("../core/config");
 const env_1 = require("../core/env");
 const manifest_1 = require("../core/manifest");
 const quickjs_1 = require("../core/quickjs");
+const typescript_1 = require("../core/typescript");
+const tsTpl = __importStar(require("../templates/typescript"));
 const vscodeTpl = __importStar(require("../templates/vscode"));
 /**
  * dx update は以下のみを更新対象とする(src/, tests/ のユーザーコードには一切触れない):
@@ -63,6 +65,16 @@ async function updateCommand(args) {
     }
     if (config.scripting) {
         await (0, quickjs_1.ensureQuickJsSources)(root, { force: args.includes("--force") });
+        // TypeScript: エンジン管理の型定義(dx.d.ts)を最新にする。tsconfig.json は無いときだけ作る
+        if ((0, typescript_1.isTypeScriptProject)(config)) {
+            const dir = path.join(root, "scripts");
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, "dx.d.ts"), tsTpl.dxDts());
+            const tsconfig = path.join(dir, "tsconfig.json");
+            if (!fs.existsSync(tsconfig))
+                fs.writeFileSync(tsconfig, tsTpl.scriptsTsconfig());
+            logger_1.logger.success("scripts/dx.d.ts を更新しました。");
+        }
     }
     refreshVscode(root, config);
     logger_1.logger.success("更新が完了しました。");

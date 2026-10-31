@@ -20,9 +20,12 @@ import {
 import { ensureManagedToolchain } from "../core/toolchain";
 import { DXLIB_WINDOWS_GCC, QUICKJS_AMALGAM } from "../core/manifest";
 import { ensureQuickJsSources } from "../core/quickjs";
+import { installTypeScript } from "../core/typescript"; 
 import * as engineTpl from "../templates/engine";
+import * as tsTpl from "../templates/typescript";  
 import * as testTpl from "../templates/test";
 import * as vscodeTpl from "../templates/vscode";
+
 
 const DX_CLI_VERSION = "0.2.0-beta.1";
 
@@ -45,11 +48,14 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.divider();
 
   const mode = await resolveDxLibMode(args);
-  let useScript = args.includes("--script");
+    // --ts は TypeScript でスクリプトを書く指定(--script を含む)
+  const wantTs = args.includes("--ts");
+  let useScript = args.includes("--script") || wantTs;
   if (useScript && mode !== "windows") {
-    logger.warn("--script は現在 windows モードのみ対応です。スクリプト層なしで作成します。");
+    logger.warn("--script / --ts は現在 windows モードのみ対応です。スクリプト層なしで作成します。");
     useScript = false;
   }
+  const useTs = useScript && wantTs;
   if (mode === "windows" && process.platform === "win32" && !findGpp()) {
     logger.warn("g++ (MinGW-w64) が見つかりません。");
     logger.plain("  DxLib 3.25a のライブラリと一致するMinGW-w64 12.2.0 (約70MB) を、");
@@ -76,7 +82,15 @@ export async function createCommand(rawName: string | undefined, args: string[])
     fs.mkdirSync(path.join(projectDir, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.h"), engineTpl.scriptSceneHeader());
     fs.writeFileSync(path.join(projectDir, "src", "engine", "ScriptScene.cpp"), engineTpl.scriptSceneSource());
-    fs.writeFileSync(path.join(projectDir, "scripts", "title.js"), engineTpl.titleScript());
+    if (useTs) {
+      // TypeScript: title.ts を書く。title.js は tsc が生成する(.gitignore対象)
+      fs.writeFileSync(path.join(projectDir, "scripts", "title.ts"), tsTpl.titleScriptTs());
+      fs.writeFileSync(path.join(projectDir, "scripts", "dx.d.ts"), tsTpl.dxDts());
+      fs.writeFileSync(path.join(projectDir, "scripts", "tsconfig.json"), tsTpl.scriptsTsconfig());
+      fs.writeFileSync(path.join(projectDir, "package.json"), tsTpl.packageJson(rawName));
+    } else {
+      fs.writeFileSync(path.join(projectDir, "scripts", "title.js"), engineTpl.titleScript());
+    }
   } else {
     fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.h"), engineTpl.titleSceneHeader());
     fs.writeFileSync(path.join(projectDir, "src", "scenes", "TitleScene.cpp"), engineTpl.titleSceneSource());
@@ -92,14 +106,22 @@ export async function createCommand(rawName: string | undefined, args: string[])
     dxlibMode: mode,
     cppStandard: "c++17",
     createdWithDxCliVersion: DX_CLI_VERSION,
-    ...(useScript ? { scripting: { engine: "quickjs" as const, version: QUICKJS_AMALGAM.version } } : {}),
+        ...(useScript
+      ? {
+          scripting: {
+            engine: "quickjs" as const,
+            version: QUICKJS_AMALGAM.version,
+            language: (useTs ? "typescript" : "javascript") as "typescript" | "javascript",
+          },
+        }
+      : {}),
   };
   writeConfig(projectDir, config);
 
   // .gitignore
   fs.writeFileSync(
     path.join(projectDir, ".gitignore"),
-    ["build/", "lib/DxLib/", "lib/quickjs/", "node_modules/", "Log.txt", ""].join("\n")
+    ["build/", "lib/DxLib/", "lib/quickjs/", "node_modules/", "Log.txt", ...(useTs ? ["scripts/*.js"] : []), ""].join("\n")
   );
 
   logger.success("プロジェクトの足場を生成しました。");
@@ -123,7 +145,17 @@ export async function createCommand(rawName: string | undefined, args: string[])
   logger.plain(`  cd ${rawName}`);
   logger.plain(`  dx dev`);
   logger.divider();
+  
+  if (useScript) {
+    const ok = await ensureQuickJsSources(projectDir);
+    if (!ok) logger.warn("QuickJSの取得に失敗しました。後で `dx update --force` で再試行できます。");
+  }
+  // TypeScript(プロジェクトごとにnpmで導入)        ← ここから追加
+  if (useTs) {
+    installTypeScript(projectDir);
+  }  
 }
+
 
 async function resolveDxLibMode(args: string[]): Promise<DxLibMode> {
   const modeArg = args.find((a) => a.startsWith("--mode="));

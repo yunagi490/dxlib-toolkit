@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { ChildProcess } from "node:child_process";
 import { logger } from "../core/logger";
 import { requireProjectRoot } from "../core/config";
+import { compileScripts, isTypeScriptProject } from "../core/typescript";
 import { buildCommand } from "./build";
 import { spawnBuiltExecutable } from "./run";
 
@@ -104,10 +105,21 @@ export function devCommand(): void {
     debounceTimer = setTimeout(rebuildAndRestart, DEBOUNCE_MS);
   }
 
+  const tsMode = isTypeScriptProject(config);
+
+  /** TypeScriptのスクリプト: .js に変換できたときだけ再起動する(型エラー中は動いているアプリを止めない) */
+  function recompileScriptsAndRestart(): void {
+    if (!compileScripts(root)) {
+      logger.warn("型エラーのため再起動しません。直して保存すると再試行します。");
+      return;
+    }
+    restartOnly();
+  }
+
   let scriptTimer: NodeJS.Timeout | null = null;
   function scheduleRestart(): void {
     if (scriptTimer) clearTimeout(scriptTimer);
-    scriptTimer = setTimeout(restartOnly, DEBOUNCE_MS);
+    scriptTimer = setTimeout(tsMode ? recompileScriptsAndRestart : restartOnly, DEBOUNCE_MS);
   }
 
   const srcDir = path.join(root, "src");
@@ -116,8 +128,13 @@ export function devCommand(): void {
   watchRecursive(srcDir, scheduleRebuild, [".cpp", ".h", ".hpp"]);
 
   if (config.scripting && fs.existsSync(scriptsDir)) {
-    logger.info(`監視中: ${scriptsDir} (変更時は再ビルドせずに再起動します)`);
-    watchRecursive(scriptsDir, scheduleRestart, [".js"]);
+    logger.info(
+      tsMode
+        ? `監視中: ${scriptsDir} (.ts の変更時は変換して、C++の再ビルドなしで再起動します)`
+        : `監視中: ${scriptsDir} (変更時は再ビルドせずに再起動します)`
+    );
+    // TypeScriptでは、変換の出力(.js)ではなく元の .ts を監視する(出力で再度反応しないように)
+    watchRecursive(scriptsDir, scheduleRestart, tsMode ? [".ts"] : [".js"]);
   }
   logger.info("Ctrl+C で終了します。");
 
